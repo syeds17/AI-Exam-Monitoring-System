@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AI Exam Monitoring - Project Files
+data/
+*.db
+
+# MediaPipe model files
+models/
+
+# Local runtime files
+*.log
