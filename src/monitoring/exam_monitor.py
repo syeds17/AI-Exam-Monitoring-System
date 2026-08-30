@@ -1,4 +1,5 @@
 import time
+import threading
 
 import cv2
 
@@ -73,11 +74,13 @@ class ExamMonitor:
         # FRAME DATA
         # ==========================================
 
-        # IMPORTANT:
-        # Do NOT reset this inside start().
         # MediaPipe requires timestamps to be
         # monotonically increasing.
+        #
+        # This value is updated from time.monotonic()
+        # immediately before every MediaPipe call.
         self.timestamp_ms = 0
+        self.process_lock = threading.Lock()
 
         self.frame_count = 0
         self.start_time = None
@@ -166,10 +169,12 @@ class ExamMonitor:
         # RESET FRAME STATE
         # ------------------------------------------
 
-        # DO NOT RESET timestamp_ms HERE.
+        # IMPORTANT:
+        # Do NOT reset timestamp_ms here.
         #
-        # MediaPipe FaceLandmarker is being reused,
-        # so timestamps must continue increasing.
+        # The FaceLandmarker instance is reused between
+        # exam sessions. Its timestamps must therefore
+        # continue increasing.
 
         self.frame_count = 0
         self.start_time = time.time()
@@ -203,6 +208,12 @@ class ExamMonitor:
 
     def process_frame(self):
 
+        with self.process_lock:
+
+            return self._process_frame()
+        
+    def _process_frame(self):
+
         if self.cap is None:
 
             raise RuntimeError(
@@ -228,6 +239,31 @@ class ExamMonitor:
             frame,
             1
         )
+
+        # ------------------------------------------
+        # MEDIAPIPE TIMESTAMP
+        # ------------------------------------------
+
+        # Use the system's monotonic clock instead of
+        # manually increasing timestamps by 33 ms.
+        #
+        # This is important because Streamlit fragments
+        # do not necessarily execute at exactly 30 FPS.
+        #
+        # Also guarantee that the new timestamp is strictly
+        # greater than the previous timestamp.
+
+        current_timestamp_ms = int(
+            time.monotonic() * 1000
+        )
+
+        if current_timestamp_ms <= self.timestamp_ms:
+
+            current_timestamp_ms = (
+                self.timestamp_ms + 1
+            )
+
+        self.timestamp_ms = current_timestamp_ms
 
         # ------------------------------------------
         # FACE LANDMARKS
@@ -479,10 +515,6 @@ class ExamMonitor:
 
         self.frame_count += 1
 
-        # IMPORTANT:
-        # Keep increasing timestamp for MediaPipe.
-        self.timestamp_ms += 33
-
         elapsed = (
             time.time() - self.start_time
         )
@@ -573,9 +605,17 @@ class ExamMonitor:
         # ------------------------------------------
 
         if self.session_id is not None:
+            
+            try:
 
-            self.logger.end_session()
+                self.logger.end_session()
+            
+            except Exception as e:
 
+                print(
+                     f"Warning: Could not end session: {e}"
+                )
+                
         self.status = "COMPLETED"
 
     # ==========================================

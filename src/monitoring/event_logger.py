@@ -16,7 +16,8 @@ class EventLogger:
         )
 
         self.connection = sqlite3.connect(
-            self.db_path
+            self.db_path,
+            check_same_thread=False
         )
 
         self.session_id = None

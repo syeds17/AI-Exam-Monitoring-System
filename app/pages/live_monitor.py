@@ -205,10 +205,28 @@ if st.session_state.running:
 
         except Exception as e:
 
+            st.session_state.monitor_error = str(e)
+            
+            try:
+                
+                monitor.stop()
+                
+            except Exception as stop_error:
+                
+                st.session_state.monitor_error += (
+                    f" | Stop error: {stop_error}"
+                )
+            
+            st.session_state.monitor = None   
+            st.session_state.running = False
+            
             st.error(
-                f"Monitoring error: {e}"
+                f"🚨 Monitoring error: {e}"
             )
-
+            st.error(
+                "Exam session ended because of a monitoring error."
+            )
+ 
             return
 
 
