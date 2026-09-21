@@ -5,6 +5,7 @@ import time
 import cv2
 import streamlit as st
 
+
 # ============================================================
 # PROJECT PATH
 # ============================================================
@@ -13,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
 
 from src.monitoring.exam_monitor import ExamMonitor
 
@@ -51,6 +53,9 @@ if "event_counts" not in st.session_state:
         "FACE_NOT_DETECTED": 0,
         "MULTIPLE_FACES": 0
     }
+
+if "last_history_event_key" not in st.session_state:
+    st.session_state.last_history_event_key = None
 
 
 # ============================================================
@@ -114,6 +119,9 @@ if start_clicked:
             "FACE_NOT_DETECTED": 0,
             "MULTIPLE_FACES": 0
         }
+
+        # Reset history rendering state
+        st.session_state.last_history_event_key = None
 
         st.success(
             f"Exam started — Session ID: {session_id}"
@@ -189,11 +197,12 @@ if st.session_state.running:
     # ONE FRAME PROCESSOR
     # ========================================================
 
-    @st.fragment(run_every=0.1)
+    @st.fragment(run_every=0.033)
     def live_frame():
 
         if not st.session_state.running:
             return
+
 
         # ----------------------------------------------------
         # PROCESS FRAME
@@ -206,27 +215,28 @@ if st.session_state.running:
         except Exception as e:
 
             st.session_state.monitor_error = str(e)
-            
+
             try:
-                
+
                 monitor.stop()
-                
+
             except Exception as stop_error:
-                
+
                 st.session_state.monitor_error += (
                     f" | Stop error: {stop_error}"
                 )
-            
-            st.session_state.monitor = None   
+
+            st.session_state.monitor = None
             st.session_state.running = False
-            
+
             st.error(
                 f"🚨 Monitoring error: {e}"
             )
+
             st.error(
                 "Exam session ended because of a monitoring error."
             )
- 
+
             return
 
 
@@ -288,6 +298,7 @@ if st.session_state.running:
                 "UNKNOWN"
             )
 
+
             if event_type == "LOOKING_AWAY":
 
                 direction = event.get(
@@ -299,11 +310,13 @@ if st.session_state.running:
                     f"🚨 LOOKING AWAY — {direction}"
                 )
 
+
             elif event_type == "EYES_CLOSED":
 
                 event_text = (
                     "🚨 EYES CLOSED"
                 )
+
 
             elif event_type == "FACE_NOT_DETECTED":
 
@@ -311,11 +324,13 @@ if st.session_state.running:
                     "🚨 FACE NOT DETECTED"
                 )
 
+
             elif event_type == "MULTIPLE_FACES":
 
                 event_text = (
                     "🚨 MULTIPLE FACES DETECTED"
                 )
+
 
             else:
 
@@ -350,6 +365,7 @@ if st.session_state.running:
                 for x in st.session_state.event_history
             ]
 
+
             if event_key not in existing_keys:
 
                 event_type = event.get(
@@ -357,11 +373,13 @@ if st.session_state.running:
                     "UNKNOWN"
                 )
 
+
                 if event_type not in st.session_state.event_counts:
 
                     st.session_state.event_counts[
                         event_type
                     ] = 0
+
 
                 st.session_state.event_counts[
                     event_type
@@ -372,15 +390,19 @@ if st.session_state.running:
                     0,
                     {
                         "key": event_key,
+
                         "time": time.strftime(
                             "%H:%M:%S",
                             time.localtime(event_time)
                         ),
+
                         "type": event_type,
+
                         "direction": event.get(
                             "direction",
                             "-"
                         ),
+
                         "duration": event.get(
                             "duration",
                             0
@@ -472,45 +494,76 @@ if st.session_state.running:
         # EVENT HISTORY
         # ====================================================
 
-        with history_placeholder.container():
+        latest_event_key = None
 
-            st.subheader(
-                "🚨 Recent Events"
+        if st.session_state.event_history:
+
+            latest_event_key = (
+                st.session_state.event_history[0]["key"]
             )
 
-            if st.session_state.event_history:
 
-                display_events = []
+        # Only rebuild the event-history UI
+        # when a new event appears.
 
-                for item in st.session_state.event_history[:10]:
+        if (
+            latest_event_key
+            != st.session_state.last_history_event_key
+        ):
 
-                    display_events.append(
-                        {
-                            "Time": item["time"],
-                            "Event": item["type"],
-                            "Direction": item["direction"],
-                            "Duration": (
-                                f"{item['duration']:.1f}s"
-                                if isinstance(
-                                    item["duration"],
-                                    (int, float)
+            st.session_state.last_history_event_key = (
+                latest_event_key
+            )
+
+
+            with history_placeholder.container():
+
+                st.subheader(
+                    "🚨 Recent Events"
+                )
+
+
+                if st.session_state.event_history:
+
+                    display_events = []
+
+
+                    for item in (
+                        st.session_state.event_history[:10]
+                    ):
+
+                        display_events.append(
+                            {
+                                "Time": item["time"],
+
+                                "Event": item["type"],
+
+                                "Direction": item["direction"],
+
+                                "Duration": (
+                                    f"{item['duration']:.1f}s"
+                                    if isinstance(
+                                        item["duration"],
+                                        (int, float)
+                                    )
+                                    else "-"
                                 )
-                                else "-"
-                            )
-                        }
+                            }
+                        )
+
+
+                    st.dataframe(
+                        display_events,
+                        use_container_width=True,
+                        hide_index=True
                     )
 
-                st.dataframe(
-                    display_events,
-                    use_container_width=True,
-                    hide_index=True
-                )
 
-            else:
+                else:
 
-                st.info(
-                    "No monitoring events detected yet."
-                )
+                    st.info(
+                        "No monitoring events detected yet."
+                    )
 
 
     # ========================================================

@@ -1,0 +1,220 @@
+* {
+    box-sizing: border-box;
+}
+
+
+body {
+
+    margin: 0;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background: #0f172a;
+
+    color: #f8fafc;
+}
+
+
+.container {
+
+    width: 95%;
+
+    max-width: 1400px;
+
+    margin: 30px auto;
+}
+
+
+header {
+
+    margin-bottom: 25px;
+}
+
+
+header h1 {
+
+    margin-bottom: 5px;
+
+    font-size: 32px;
+}
+
+
+header p {
+
+    color: #94a3b8;
+}
+
+
+.controls {
+
+    display: flex;
+
+    gap: 15px;
+
+    margin-bottom: 20px;
+}
+
+
+button {
+
+    border: none;
+
+    padding: 13px 24px;
+
+    border-radius: 8px;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+
+#startBtn {
+
+    background: #22c55e;
+
+    color: white;
+}
+
+
+#stopBtn {
+
+    background: #ef4444;
+
+    color: white;
+}
+
+
+button:disabled {
+
+    opacity: 0.4;
+
+    cursor: not-allowed;
+}
+
+
+#sessionInfo {
+
+    display: flex;
+
+    gap: 40px;
+
+    padding: 15px;
+
+    margin-bottom: 20px;
+
+    background: #1e293b;
+
+    border-radius: 10px;
+}
+
+
+main {
+
+    display: grid;
+
+    grid-template-columns:
+        2fr
+        1fr;
+
+    gap: 20px;
+}
+
+
+.video-card,
+.monitor-card {
+
+    background: #1e293b;
+
+    border-radius: 12px;
+
+    padding: 20px;
+}
+
+
+.video-card h2,
+.monitor-card h2 {
+
+    margin-top: 0;
+}
+
+
+#video {
+
+    width: 100%;
+
+    display: block;
+
+    border-radius: 8px;
+
+    background: black;
+}
+
+
+.metrics {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr
+        1fr;
+
+    gap: 15px;
+
+    margin-top: 20px;
+}
+
+
+.metric {
+
+    background: #0f172a;
+
+    padding: 18px;
+
+    border-radius: 8px;
+}
+
+
+.metric span {
+
+    display: block;
+
+    color: #94a3b8;
+
+    margin-bottom: 5px;
+}
+
+
+.metric strong {
+
+    font-size: 24px;
+}
+
+
+.event {
+
+    margin-top: 25px;
+
+    padding: 18px;
+
+    border-radius: 8px;
+
+    background: #334155;
+
+    font-weight: bold;
+}
+
+
+@media (max-width: 900px) {
+
+    main {
+
+        grid-template-columns: 1fr;
+    }
+
+}

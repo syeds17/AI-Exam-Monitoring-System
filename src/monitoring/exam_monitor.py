@@ -3,6 +3,7 @@ import threading
 
 import cv2
 
+from src.camera.threaded_camera import ThreadedCamera
 from src.face.face_landmarker import FaceLandmarker
 from src.face.head_pose import HeadPoseEstimator
 from src.monitoring.attention_tracker import AttentionTracker
@@ -56,10 +57,10 @@ class ExamMonitor:
         self.session_id = None
 
         # ==========================================
-        # CAMERA
+        # THREADED CAMERA
         # ==========================================
 
-        self.cap = None
+        self.camera = None
 
         # ==========================================
         # CALIBRATION
@@ -77,9 +78,14 @@ class ExamMonitor:
         # MediaPipe requires timestamps to be
         # monotonically increasing.
         #
-        # This value is updated from time.monotonic()
-        # immediately before every MediaPipe call.
+        # The FaceLandmarker instance is reused
+        # between exam sessions, so timestamps
+        # must continue increasing.
+
         self.timestamp_ms = 0
+
+        # Prevent two Streamlit/UI calls from
+        # processing the same monitor simultaneously.
         self.process_lock = threading.Lock()
 
         self.frame_count = 0
@@ -141,19 +147,31 @@ class ExamMonitor:
         self.head_pose = HeadPoseEstimator()
 
         # ------------------------------------------
-        # OPEN CAMERA
+        # START THREADED CAMERA
         # ------------------------------------------
 
-        self.cap = cv2.VideoCapture(
-            self.camera_index
-        )
+        try:
 
-        if not self.cap.isOpened():
+            self.camera = ThreadedCamera(
+                camera_index=self.camera_index,
+                width=1280,
+                height=720,
+                target_fps=30
+            )
 
-            self.logger.end_session()
+            self.camera.start()
+
+        except Exception as e:
+
+            self.camera = None
+
+            try:
+                self.logger.end_session()
+            except Exception:
+                pass
 
             raise RuntimeError(
-                "Could not open webcam."
+                f"Could not open webcam: {e}"
             )
 
         # ------------------------------------------
@@ -172,9 +190,9 @@ class ExamMonitor:
         # IMPORTANT:
         # Do NOT reset timestamp_ms here.
         #
-        # The FaceLandmarker instance is reused between
-        # exam sessions. Its timestamps must therefore
-        # continue increasing.
+        # The FaceLandmarker instance is reused
+        # between exam sessions. Its timestamps
+        # must continue increasing.
 
         self.frame_count = 0
         self.start_time = time.time()
@@ -209,13 +227,11 @@ class ExamMonitor:
     def process_frame(self):
 
         with self.process_lock:
-
             return self._process_frame()
-        
+
     def _process_frame(self):
 
-        if self.cap is None:
-
+        if self.camera is None:
             raise RuntimeError(
                 "Exam session has not been started."
             )
@@ -223,16 +239,16 @@ class ExamMonitor:
         # Clear previous event.
         # If a new event occurs during this frame,
         # _register_event() will replace it.
+
         self.last_event = None
 
         # ------------------------------------------
-        # READ CAMERA FRAME
+        # READ LATEST CAMERA FRAME
         # ------------------------------------------
 
-        success, frame = self.cap.read()
+        frame = self.camera.read()
 
-        if not success:
-
+        if frame is None:
             return None
 
         frame = cv2.flip(
@@ -244,18 +260,14 @@ class ExamMonitor:
         # MEDIAPIPE TIMESTAMP
         # ------------------------------------------
 
-        # Use the system's monotonic clock instead of
-        # manually increasing timestamps by 33 ms.
-        #
-        # This is important because Streamlit fragments
-        # do not necessarily execute at exactly 30 FPS.
-        #
-        # Also guarantee that the new timestamp is strictly
-        # greater than the previous timestamp.
+        # Use the system's monotonic clock instead
+        # of assuming a fixed 30 FPS processing rate.
 
         current_timestamp_ms = int(
             time.monotonic() * 1000
         )
+
+        # Guarantee strictly increasing timestamps.
 
         if current_timestamp_ms <= self.timestamp_ms:
 
@@ -510,7 +522,7 @@ class ExamMonitor:
             )
 
         # ==========================================
-        # FPS
+        # PROCESSING FPS
         # ==========================================
 
         self.frame_count += 1
@@ -519,9 +531,19 @@ class ExamMonitor:
             time.time() - self.start_time
         )
 
-        fps = (
+        processing_fps = (
             self.frame_count / elapsed
             if elapsed > 0
+            else 0
+        )
+
+        # ==========================================
+        # CAMERA FPS
+        # ==========================================
+
+        capture_fps = (
+            self.camera.get_fps()
+            if self.camera is not None
             else 0
         )
 
@@ -535,7 +557,11 @@ class ExamMonitor:
 
             "session_id": self.session_id,
 
-            "fps": fps,
+            # AI processing FPS
+            "fps": processing_fps,
+
+            # Webcam capture FPS
+            "capture_fps": capture_fps,
 
             "face_count": self.face_count,
 
@@ -591,31 +617,39 @@ class ExamMonitor:
     def stop(self):
 
         # ------------------------------------------
-        # RELEASE CAMERA
+        # STOP THREADED CAMERA
         # ------------------------------------------
 
-        if self.cap is not None:
+        if self.camera is not None:
 
-            self.cap.release()
+            try:
 
-            self.cap = None
+                self.camera.stop()
+
+            except Exception as e:
+
+                print(
+                    f"Warning: Could not stop camera: {e}"
+                )
+
+            self.camera = None
 
         # ------------------------------------------
         # END DATABASE SESSION
         # ------------------------------------------
 
         if self.session_id is not None:
-            
+
             try:
 
                 self.logger.end_session()
-            
+
             except Exception as e:
 
                 print(
-                     f"Warning: Could not end session: {e}"
+                    f"Warning: Could not end session: {e}"
                 )
-                
+
         self.status = "COMPLETED"
 
     # ==========================================
@@ -623,6 +657,19 @@ class ExamMonitor:
     # ==========================================
 
     def get_state(self):
+
+        processing_fps = (
+            self.frame_count /
+            (time.time() - self.start_time)
+            if self.start_time
+            else 0
+        )
+
+        capture_fps = (
+            self.camera.get_fps()
+            if self.camera is not None
+            else 0
+        )
 
         return {
 
@@ -638,12 +685,9 @@ class ExamMonitor:
 
             "average_ear": self.average_ear,
 
-            "fps": (
-                self.frame_count /
-                (time.time() - self.start_time)
-                if self.start_time
-                else 0
-            ),
+            "fps": processing_fps,
+
+            "capture_fps": capture_fps,
 
             "calibrated": self.calibrated,
 
@@ -657,14 +701,19 @@ class ExamMonitor:
     def close(self):
 
         # ------------------------------------------
-        # RELEASE CAMERA
+        # STOP CAMERA
         # ------------------------------------------
 
-        if self.cap is not None:
+        if self.camera is not None:
 
-            self.cap.release()
+            try:
 
-            self.cap = None
+                self.camera.stop()
+
+            except Exception:
+                pass
+
+            self.camera = None
 
         # ------------------------------------------
         # CLOSE MEDIAPIPE

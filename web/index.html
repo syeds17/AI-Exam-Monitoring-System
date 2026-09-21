@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>AI Exam Monitoring System</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+
+<body>
+
+    <div class="container">
+
+        <header>
+
+            <h1>🎥 AI Exam Monitoring System</h1>
+
+            <p>
+                Real-time AI-powered examination monitoring
+            </p>
+
+        </header>
+
+
+        <section class="controls">
+
+            <button
+                id="startBtn"
+                onclick="startExam()"
+            >
+                ▶ Start Exam
+            </button>
+
+
+            <button
+                id="stopBtn"
+                onclick="stopExam()"
+                disabled
+            >
+                ⏹ Stop Exam
+            </button>
+
+        </section>
+
+
+        <section id="sessionInfo">
+
+            <div>
+                <strong>Status:</strong>
+
+                <span id="status">
+                    NOT RUNNING
+                </span>
+            </div>
+
+
+            <div>
+
+                <strong>Session:</strong>
+
+                <span id="sessionId">
+                    -
+                </span>
+
+            </div>
+
+        </section>
+
+
+        <main>
+
+            <div class="video-card">
+
+                <h2>Live Monitoring</h2>
+
+                <img
+                    id="video"
+                    src=""
+                    alt="Live monitoring feed"
+                >
+
+            </div>
+
+
+            <div class="monitor-card">
+
+                <h2>Monitoring Status</h2>
+
+
+                <div class="metrics">
+
+                    <div class="metric">
+
+                        <span>Faces</span>
+
+                        <strong id="faces">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="metric">
+
+                        <span>Direction</span>
+
+                        <strong id="direction">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="metric">
+
+                        <span>Eyes</span>
+
+                        <strong id="eyes">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="metric">
+
+                        <span>FPS</span>
+
+                        <strong id="fps">
+                            -
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="event"
+                    class="event"
+                >
+                    No active monitoring alert.
+                </div>
+
+                <div class = "event-history">
+                    
+                    <h3>Monitoring Event History</h3>
+
+                    <div id="eventHistory">
+
+                        <div class="no-events">
+                            No monitoring events yet.
+                        </div>
+
+                    </div>
+                </div>
+                    
+
+            </div>
+
+        </main>
+
+    </div>
+
+
+    <script src="/static/app.js"></script>
+
+</body>
+
+</html>
