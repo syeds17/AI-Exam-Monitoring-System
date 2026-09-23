@@ -26,8 +26,8 @@ class FaceLandmarker:
             # VIDEO mode enables MediaPipe tracking
             running_mode=RunningMode.VIDEO,
 
-            # We currently monitor one primary face
-            num_faces=1,
+            # Detect up to 2 faces for exam monitoring
+            num_faces=2,
 
             min_face_detection_confidence=0.5,
             min_face_presence_confidence=0.5,
@@ -73,14 +73,13 @@ class FaceLandmarker:
         frame_height
     ):
         """
-        Calculate the center point of the detected face.
+        Calculate the center point of a detected face.
 
         Uses all available face landmarks and returns
         the average X/Y position in pixel coordinates.
         """
 
         if not face_landmarks:
-
             return None
 
         total_x = 0.0
