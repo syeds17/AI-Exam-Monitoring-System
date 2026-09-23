@@ -5,7 +5,9 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 
-from api.monitoring_service import monitoring_service
+from api.monitoring_service import (
+    monitoring_service
+)
 
 
 app = FastAPI(
@@ -21,9 +23,9 @@ app.mount(
 )
 
 
-# --------------------------------------------------
+# ==========================================================
 # HOME
-# --------------------------------------------------
+# ==========================================================
 
 @app.get("/")
 def home():
@@ -33,9 +35,9 @@ def home():
     )
 
 
-# --------------------------------------------------
+# ==========================================================
 # START SESSION
-# --------------------------------------------------
+# ==========================================================
 
 @app.post("/api/session/start")
 def start_session():
@@ -50,9 +52,9 @@ def start_session():
     }
 
 
-# --------------------------------------------------
+# ==========================================================
 # STOP SESSION
-# --------------------------------------------------
+# ==========================================================
 
 @app.post("/api/session/stop")
 def stop_session():
@@ -67,9 +69,9 @@ def stop_session():
     }
 
 
-# --------------------------------------------------
-# SESSION STATUS
-# --------------------------------------------------
+# ==========================================================
+# STATUS
+# ==========================================================
 
 @app.get("/api/session/status")
 def session_status():
@@ -79,9 +81,9 @@ def session_status():
     )
 
 
-# --------------------------------------------------
-# EVENT HISTORY
-# --------------------------------------------------
+# ==========================================================
+# EVENTS
+# ==========================================================
 
 @app.get("/api/events")
 def get_events():
@@ -92,9 +94,9 @@ def get_events():
     }
 
 
-# --------------------------------------------------
+# ==========================================================
 # VIDEO STREAM
-# --------------------------------------------------
+# ==========================================================
 
 def frame_generator():
 
@@ -116,12 +118,19 @@ def frame_generator():
         last_sequence = sequence
 
         yield (
+
             b"--frame\r\n"
+
             b"Content-Type: image/jpeg\r\n"
+
             b"Content-Length: "
-            + str(len(frame)).encode()
+            + str(
+                len(frame)
+            ).encode()
             + b"\r\n\r\n"
+
             + frame
+
             + b"\r\n"
         )
 
@@ -130,13 +139,22 @@ def frame_generator():
 def video_stream():
 
     return StreamingResponse(
+
         frame_generator(),
+
         media_type=(
             "multipart/x-mixed-replace;"
             " boundary=frame"
         ),
+
         headers={
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache"
+            "Cache-Control":
+                "no-cache, no-store, must-revalidate",
+
+            "Pragma":
+                "no-cache",
+
+            "Expires":
+                "0"
         }
     )

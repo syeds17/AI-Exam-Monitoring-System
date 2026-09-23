@@ -13,6 +13,7 @@ from src.eyes.eye_monitor import EyeMonitor
 
 
 MODEL_PATH = "models/face/face_landmarker.task"
+
 CALIBRATION_FRAMES = 75
 
 
@@ -22,9 +23,9 @@ class ExamMonitor:
 
         self.camera_index = camera_index
 
-        # ==========================================
+        # ==================================================
         # AI COMPONENTS
-        # ==========================================
+        # ==================================================
 
         self.face_landmarker = FaceLandmarker(
             MODEL_PATH
@@ -46,9 +47,9 @@ class ExamMonitor:
             closed_duration_threshold=2.0
         )
 
-        # ==========================================
-        # EVENT LOGGER
-        # ==========================================
+        # ==================================================
+        # DATABASE
+        # ==================================================
 
         self.logger = EventLogger(
             "data/exam_monitoring.db"
@@ -56,51 +57,57 @@ class ExamMonitor:
 
         self.session_id = None
 
-        # ==========================================
+        # ==================================================
         # THREADED CAMERA
-        # ==========================================
+        # ==================================================
 
-        self.camera = None
+        self.camera = ThreadedCamera(
+            camera_index=self.camera_index,
+            width=1280,
+            height=720,
+            target_fps=30
+        )
 
-        # ==========================================
+        # ==================================================
         # CALIBRATION
-        # ==========================================
+        # ==================================================
 
         self.calibration_pitch = []
         self.calibration_yaw = []
 
         self.calibrated = False
 
-        # ==========================================
-        # FRAME DATA
-        # ==========================================
-
-        # MediaPipe requires timestamps to be
-        # monotonically increasing.
-        #
-        # The FaceLandmarker instance is reused
-        # between exam sessions, so timestamps
-        # must continue increasing.
+        # ==================================================
+        # TIMESTAMP
+        # ==================================================
 
         self.timestamp_ms = 0
 
-        # Prevent two Streamlit/UI calls from
-        # processing the same monitor simultaneously.
+        # ==================================================
+        # PROCESS LOCK
+        # ==================================================
+
         self.process_lock = threading.Lock()
+
+        # ==================================================
+        # FRAME DATA
+        # ==================================================
 
         self.frame_count = 0
         self.start_time = None
 
-        # ==========================================
+        # ==================================================
         # CURRENT STATE
-        # ==========================================
+        # ==================================================
 
         self.direction = "NO FACE"
+
         self.status = "NOT STARTED"
 
         self.face_count = 0
 
         self.eye_status = "UNKNOWN"
+
         self.average_ear = 0.0
 
         self.pitch = None
@@ -112,23 +119,23 @@ class ExamMonitor:
         self.last_event = None
         self.last_event_time = 0
 
-    # ==========================================
+    # ======================================================
     # START EXAM
-    # ==========================================
+    # ======================================================
 
     def start(self):
 
-        # ------------------------------------------
-        # START DATABASE SESSION
-        # ------------------------------------------
+        # -----------------------------------------------
+        # DATABASE SESSION
+        # -----------------------------------------------
 
         self.session_id = (
             self.logger.start_session()
         )
 
-        # ------------------------------------------
-        # RESET MONITOR COMPONENTS
-        # ------------------------------------------
+        # -----------------------------------------------
+        # RESET MONITORS
+        # -----------------------------------------------
 
         self.tracker = AttentionTracker(
             looking_away_threshold=3.0
@@ -146,67 +153,31 @@ class ExamMonitor:
 
         self.head_pose = HeadPoseEstimator()
 
-        # ------------------------------------------
-        # START THREADED CAMERA
-        # ------------------------------------------
-
-        try:
-
-            self.camera = ThreadedCamera(
-                camera_index=self.camera_index,
-                width=1280,
-                height=720,
-                target_fps=30
-            )
-
-            self.camera.start()
-
-        except Exception as e:
-
-            self.camera = None
-
-            try:
-                self.logger.end_session()
-            except Exception:
-                pass
-
-            raise RuntimeError(
-                f"Could not open webcam: {e}"
-            )
-
-        # ------------------------------------------
+        # -----------------------------------------------
         # RESET CALIBRATION
-        # ------------------------------------------
+        # -----------------------------------------------
 
         self.calibration_pitch = []
         self.calibration_yaw = []
 
         self.calibrated = False
 
-        # ------------------------------------------
-        # RESET FRAME STATE
-        # ------------------------------------------
-
-        # IMPORTANT:
-        # Do NOT reset timestamp_ms here.
-        #
-        # The FaceLandmarker instance is reused
-        # between exam sessions. Its timestamps
-        # must continue increasing.
+        # -----------------------------------------------
+        # RESET STATE
+        # -----------------------------------------------
 
         self.frame_count = 0
+
         self.start_time = time.time()
 
-        # ------------------------------------------
-        # RESET CURRENT STATE
-        # ------------------------------------------
-
         self.direction = "NO FACE"
+
         self.status = "CALIBRATING"
 
         self.face_count = 0
 
         self.eye_status = "UNKNOWN"
+
         self.average_ear = 0.0
 
         self.pitch = None
@@ -218,73 +189,94 @@ class ExamMonitor:
         self.last_event = None
         self.last_event_time = 0
 
+        # -----------------------------------------------
+        # START THREADED CAMERA
+        # -----------------------------------------------
+
+        try:
+
+            self.camera.start()
+
+        except Exception:
+
+            self.logger.end_session()
+
+            raise
+
         return self.session_id
 
-    # ==========================================
+    # ======================================================
     # PROCESS ONE FRAME
-    # ==========================================
+    # ======================================================
 
     def process_frame(self):
 
         with self.process_lock:
+
             return self._process_frame()
+
+    # ======================================================
+    # INTERNAL FRAME PROCESSING
+    # ======================================================
 
     def _process_frame(self):
 
-        if self.camera is None:
+        if not self.camera.is_running():
+
             raise RuntimeError(
-                "Exam session has not been started."
+                "Camera is not running."
             )
 
-        # Clear previous event.
-        # If a new event occurs during this frame,
-        # _register_event() will replace it.
-
+        # Clear event for this frame.
         self.last_event = None
 
-        # ------------------------------------------
-        # READ LATEST CAMERA FRAME
-        # ------------------------------------------
+        # -----------------------------------------------
+        # GET LATEST CAMERA FRAME
+        # -----------------------------------------------
 
         frame = self.camera.read()
 
         if frame is None:
+
             return None
 
+        # Mirror image.
         frame = cv2.flip(
             frame,
             1
         )
 
-        # ------------------------------------------
+        # -----------------------------------------------
         # MEDIAPIPE TIMESTAMP
-        # ------------------------------------------
-
-        # Use the system's monotonic clock instead
-        # of assuming a fixed 30 FPS processing rate.
+        # -----------------------------------------------
 
         current_timestamp_ms = int(
             time.monotonic() * 1000
         )
 
-        # Guarantee strictly increasing timestamps.
-
-        if current_timestamp_ms <= self.timestamp_ms:
+        if (
+            current_timestamp_ms
+            <= self.timestamp_ms
+        ):
 
             current_timestamp_ms = (
                 self.timestamp_ms + 1
             )
 
-        self.timestamp_ms = current_timestamp_ms
+        self.timestamp_ms = (
+            current_timestamp_ms
+        )
 
-        # ------------------------------------------
+        # -----------------------------------------------
         # FACE LANDMARKS
-        # ------------------------------------------
+        # -----------------------------------------------
 
         result = self.face_landmarker.process(
             frame,
             self.timestamp_ms
         )
+
+        # Reset current face state.
 
         self.pitch = None
         self.yaw = None
@@ -293,11 +285,12 @@ class ExamMonitor:
         self.relative_yaw = None
 
         self.direction = "NO FACE"
+
         self.face_count = 0
 
-        # ------------------------------------------
+        # -----------------------------------------------
         # FACE DETECTION
-        # ------------------------------------------
+        # -----------------------------------------------
 
         if result.face_landmarks:
 
@@ -309,22 +302,28 @@ class ExamMonitor:
 
             face = result.face_landmarks[0]
 
-            # ======================================
+            # ==========================================
             # EYE MONITOR
-            # ======================================
+            # ==========================================
 
-            eye_state = self.eye_monitor.update(
-                face,
-                time.time()
+            eye_state = (
+                self.eye_monitor.update(
+                    face,
+                    time.time()
+                )
             )
 
-            self.eye_status = eye_state["state"]
+            self.eye_status = (
+                eye_state["state"]
+            )
 
             self.average_ear = (
                 eye_state["average_ear"]
             )
 
-            eye_event = eye_state["event"]
+            eye_event = (
+                eye_state["event"]
+            )
 
             if eye_event is not None:
 
@@ -332,21 +331,22 @@ class ExamMonitor:
                     eye_event
                 )
 
-            # ======================================
+            # ==========================================
             # HEAD POSE
-            # ======================================
+            # ==========================================
 
-            self.pitch, self.yaw = (
-                self.head_pose.get_pose(
-                    face,
-                    w,
-                    h
-                )
+            (
+                self.pitch,
+                self.yaw
+            ) = self.head_pose.get_pose(
+                face,
+                w,
+                h
             )
 
-            # ======================================
+            # ==========================================
             # CALIBRATION
-            # ======================================
+            # ==========================================
 
             if not self.calibrated:
 
@@ -364,10 +364,14 @@ class ExamMonitor:
 
                 self.status = (
                     f"CALIBRATING "
-                    f"{progress}/{CALIBRATION_FRAMES}"
+                    f"{progress}/"
+                    f"{CALIBRATION_FRAMES}"
                 )
 
-                if progress >= CALIBRATION_FRAMES:
+                if (
+                    progress
+                    >= CALIBRATION_FRAMES
+                ):
 
                     neutral_pitch = (
                         self.head_pose.circular_mean(
@@ -404,9 +408,9 @@ class ExamMonitor:
                         f"{neutral_yaw:.2f}"
                     )
 
-            # ======================================
+            # ==========================================
             # HEAD DIRECTION
-            # ======================================
+            # ==========================================
 
             else:
 
@@ -425,9 +429,9 @@ class ExamMonitor:
                     )
                 )
 
-            # ======================================
-            # DRAW LANDMARKS
-            # ======================================
+            # ==========================================
+            # DRAW FACE LANDMARKS
+            # ==========================================
 
             for landmark in face:
 
@@ -453,9 +457,9 @@ class ExamMonitor:
                         -1
                     )
 
-        # ==========================================
+        # ==================================================
         # ATTENTION TRACKER
-        # ==========================================
+        # ==================================================
 
         if self.calibrated:
 
@@ -471,13 +475,15 @@ class ExamMonitor:
                     attention_event
                 )
 
-        # ==========================================
+        # ==================================================
         # FACE MONITOR
-        # ==========================================
+        # ==================================================
 
-        face_event = self.face_monitor.update(
-            face_count=self.face_count,
-            current_time=time.time()
+        face_event = (
+            self.face_monitor.update(
+                face_count=self.face_count,
+                current_time=time.time()
+            )
         )
 
         if face_event is not None:
@@ -486,9 +492,9 @@ class ExamMonitor:
                 face_event
             )
 
-        # ==========================================
+        # ==================================================
         # STATUS
-        # ==========================================
+        # ==================================================
 
         if self.face_count == 0:
 
@@ -521,14 +527,15 @@ class ExamMonitor:
                 f"{duration:.1f}s"
             )
 
-        # ==========================================
-        # PROCESSING FPS
-        # ==========================================
+        # ==================================================
+        # FPS
+        # ==================================================
 
         self.frame_count += 1
 
         elapsed = (
-            time.time() - self.start_time
+            time.time()
+            - self.start_time
         )
 
         processing_fps = (
@@ -537,106 +544,99 @@ class ExamMonitor:
             else 0
         )
 
-        # ==========================================
-        # CAMERA FPS
-        # ==========================================
-
         capture_fps = (
             self.camera.get_fps()
-            if self.camera is not None
-            else 0
         )
 
-        # ==========================================
+        # ==================================================
         # RETURN STATE
-        # ==========================================
+        # ==================================================
 
-        state = {
+        return {
 
             "frame": frame,
 
-            "session_id": self.session_id,
+            "session_id":
+                self.session_id,
 
-            # AI processing FPS
-            "fps": processing_fps,
+            "fps":
+                processing_fps,
 
-            # Webcam capture FPS
-            "capture_fps": capture_fps,
+            "capture_fps":
+                capture_fps,
 
-            "face_count": self.face_count,
+            "face_count":
+                self.face_count,
 
-            "direction": self.direction,
+            "direction":
+                self.direction,
 
-            "status": self.status,
+            "status":
+                self.status,
 
-            "eye_status": self.eye_status,
+            "eye_status":
+                self.eye_status,
 
-            "average_ear": self.average_ear,
+            "average_ear":
+                self.average_ear,
 
-            "pitch": self.pitch,
+            "pitch":
+                self.pitch,
 
-            "yaw": self.yaw,
+            "yaw":
+                self.yaw,
 
-            "relative_pitch": (
-                self.relative_pitch
-            ),
+            "relative_pitch":
+                self.relative_pitch,
 
-            "relative_yaw": (
-                self.relative_yaw
-            ),
+            "relative_yaw":
+                self.relative_yaw,
 
-            "last_event": self.last_event,
+            "last_event":
+                self.last_event,
 
-            "calibrated": self.calibrated,
+            "calibrated":
+                self.calibrated,
 
-            "calibration_progress": len(
-                self.calibration_pitch
-            ),
+            "calibration_progress":
+                len(self.calibration_pitch)
         }
 
-        return state
-
-    # ==========================================
+    # ======================================================
     # EVENT HANDLING
-    # ==========================================
+    # ======================================================
 
     def _register_event(self, event):
 
         self.last_event = event
 
-        self.last_event_time = time.time()
+        self.last_event_time = (
+            time.time()
+        )
 
         self.logger.log_event(
             event
         )
 
-    # ==========================================
-    # STOP EXAM
-    # ==========================================
+    # ======================================================
+    # STOP
+    # ======================================================
 
     def stop(self):
 
-        # ------------------------------------------
-        # STOP THREADED CAMERA
-        # ------------------------------------------
+        # Stop camera first.
 
-        if self.camera is not None:
+        try:
 
-            try:
+            self.camera.stop()
 
-                self.camera.stop()
+        except Exception as e:
 
-            except Exception as e:
+            print(
+                f"Camera stop warning: {e}"
+            )
 
-                print(
-                    f"Warning: Could not stop camera: {e}"
-                )
-
-            self.camera = None
-
-        # ------------------------------------------
-        # END DATABASE SESSION
-        # ------------------------------------------
+        # End database session.
 
         if self.session_id is not None:
 
@@ -647,90 +647,96 @@ class ExamMonitor:
             except Exception as e:
 
                 print(
-                    f"Warning: Could not end session: {e}"
+                    f"Session end warning: {e}"
                 )
 
         self.status = "COMPLETED"
 
-    # ==========================================
-    # GET CURRENT STATE
-    # ==========================================
+    # ======================================================
+    # GET STATE
+    # ======================================================
 
     def get_state(self):
 
-        processing_fps = (
-            self.frame_count /
-            (time.time() - self.start_time)
-            if self.start_time
-            else 0
-        )
+        elapsed = 0
 
-        capture_fps = (
-            self.camera.get_fps()
-            if self.camera is not None
+        if self.start_time:
+
+            elapsed = (
+                time.time()
+                - self.start_time
+            )
+
+        fps = (
+            self.frame_count / elapsed
+            if elapsed > 0
             else 0
         )
 
         return {
 
-            "session_id": self.session_id,
+            "session_id":
+                self.session_id,
 
-            "face_count": self.face_count,
+            "face_count":
+                self.face_count,
 
-            "direction": self.direction,
+            "direction":
+                self.direction,
 
-            "status": self.status,
+            "status":
+                self.status,
 
-            "eye_status": self.eye_status,
+            "eye_status":
+                self.eye_status,
 
-            "average_ear": self.average_ear,
+            "average_ear":
+                self.average_ear,
 
-            "fps": processing_fps,
+            "fps":
+                fps,
 
-            "capture_fps": capture_fps,
+            "capture_fps":
+                self.camera.get_fps(),
 
-            "calibrated": self.calibrated,
+            "calibrated":
+                self.calibrated,
 
-            "last_event": self.last_event,
+            "last_event":
+                self.last_event
         }
 
-    # ==========================================
+    # ======================================================
     # FINAL CLEANUP
-    # ==========================================
+    # ======================================================
 
     def close(self):
 
-        # ------------------------------------------
-        # STOP CAMERA
-        # ------------------------------------------
+        try:
 
-        if self.camera is not None:
+            self.camera.stop()
+
+        except Exception:
+            pass
+
+        if self.face_landmarker is not None:
 
             try:
 
-                self.camera.stop()
+                self.face_landmarker.close()
 
             except Exception:
                 pass
 
-            self.camera = None
-
-        # ------------------------------------------
-        # CLOSE MEDIAPIPE
-        # ------------------------------------------
-
-        if self.face_landmarker is not None:
-
-            self.face_landmarker.close()
-
             self.face_landmarker = None
-
-        # ------------------------------------------
-        # CLOSE DATABASE
-        # ------------------------------------------
 
         if self.logger is not None:
 
-            self.logger.close()
+            try:
+
+                self.logger.close()
+
+            except Exception:
+                pass
 
             self.logger = None

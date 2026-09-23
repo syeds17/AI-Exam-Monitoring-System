@@ -2,6 +2,45 @@ let statusInterval = null;
 
 
 // ============================================================
+// SAFE JSON RESPONSE
+// ============================================================
+
+async function getJsonResponse(response) {
+
+    const text = await response.text();
+
+    if (!response.ok) {
+
+        console.error(
+            "Backend error:",
+            response.status,
+            text
+        );
+
+        throw new Error(
+            `Server returned ${response.status}: ${text}`
+        );
+    }
+
+    try {
+
+        return JSON.parse(text);
+
+    } catch (error) {
+
+        console.error(
+            "Invalid JSON response:",
+            text
+        );
+
+        throw new Error(
+            "Server returned invalid JSON."
+        );
+    }
+}
+
+
+// ============================================================
 // START EXAM
 // ============================================================
 
@@ -16,24 +55,28 @@ async function startExam() {
             }
         );
 
-        const data = await response.json();
+        const data =
+            await getJsonResponse(
+                response
+            );
 
         if (!data.success) {
+
             throw new Error(
                 "Failed to start session."
             );
         }
 
-        // Session information
         document.getElementById(
             "sessionId"
-        ).textContent = data.session_id;
+        ).textContent =
+            data.session_id;
 
         document.getElementById(
             "status"
-        ).textContent = "RUNNING";
+        ).textContent =
+            "RUNNING";
 
-        // Buttons
         document.getElementById(
             "startBtn"
         ).disabled = true;
@@ -42,14 +85,15 @@ async function startExam() {
             "stopBtn"
         ).disabled = false;
 
-        // Start video stream
         const video =
-            document.getElementById("video");
+            document.getElementById(
+                "video"
+            );
 
         video.src =
-            "/api/video?t=" + Date.now();
+            "/api/video?t=" +
+            Date.now();
 
-        // Start status polling
         if (statusInterval !== null) {
 
             clearInterval(
@@ -57,10 +101,11 @@ async function startExam() {
             );
         }
 
-        statusInterval = setInterval(
-            updateStatus,
-            250
-        );
+        statusInterval =
+            setInterval(
+                updateStatus,
+                250
+            );
 
         await updateStatus();
 
@@ -72,7 +117,7 @@ async function startExam() {
         );
 
         alert(
-            "Failed to start monitoring: "
+            "Failed to start monitoring:\n\n"
             + error.message
         );
     }
@@ -94,9 +139,11 @@ async function stopExam() {
             }
         );
 
-        const data = await response.json();
+        const data =
+            await getJsonResponse(
+                response
+            );
 
-        // Stop polling
         if (statusInterval !== null) {
 
             clearInterval(
@@ -106,23 +153,18 @@ async function stopExam() {
             statusInterval = null;
         }
 
-        // Stop video
         const video =
-            document.getElementById("video");
+            document.getElementById(
+                "video"
+            );
 
         video.src = "";
 
-        // Update status
         document.getElementById(
             "status"
-        ).textContent = "STOPPED";
-
-        document.getElementById(
-            "sessionId"
         ).textContent =
-            data.session_id || "-";
+            "STOPPED";
 
-        // Buttons
         document.getElementById(
             "startBtn"
         ).disabled = false;
@@ -130,6 +172,14 @@ async function stopExam() {
         document.getElementById(
             "stopBtn"
         ).disabled = true;
+
+        if (data.session_id) {
+
+            document.getElementById(
+                "sessionId"
+            ).textContent =
+                data.session_id;
+        }
 
     } catch (error) {
 
@@ -139,7 +189,7 @@ async function stopExam() {
         );
 
         alert(
-            "Failed to stop monitoring: "
+            "Failed to stop monitoring:\n\n"
             + error.message
         );
     }
@@ -155,10 +205,16 @@ async function updateStatus() {
     try {
 
         const response = await fetch(
-            "/api/session/status"
+            "/api/session/status",
+            {
+                cache: "no-store"
+            }
         );
 
-        const data = await response.json();
+        const data =
+            await getJsonResponse(
+                response
+            );
 
         if (!data) {
             return;
@@ -190,18 +246,23 @@ async function updateStatus() {
         // CURRENT STATE
         // ----------------------------------------------------
 
-        const state = data.state;
+        const state =
+            data.state;
 
         if (state) {
 
-            updateMetrics(state);
+            updateMetrics(
+                state
+            );
 
-            updateCurrentEvent(state);
+            updateCurrentEvent(
+                state
+            );
         }
 
 
         // ----------------------------------------------------
-        // PERSISTENT EVENT HISTORY
+        // EVENT HISTORY
         // ----------------------------------------------------
 
         renderEventHistory(
@@ -210,7 +271,7 @@ async function updateStatus() {
 
 
         // ----------------------------------------------------
-        // ERROR
+        // BACKEND ERROR
         // ----------------------------------------------------
 
         if (data.error) {
@@ -238,64 +299,44 @@ async function updateStatus() {
 function updateMetrics(state) {
 
     const faces =
-        state.face_count ??
-        state.faces ??
-        0;
+        state.face_count ?? 0;
 
     const direction =
-        state.direction ??
-        "UNKNOWN";
+        state.direction ?? "UNKNOWN";
 
     const eyes =
-        state.eye_status ??
-        "UNKNOWN";
+        state.eye_status ?? "UNKNOWN";
 
     const fps =
-        state.fps ??
-        state.capture_fps ??
-        0;
+        state.fps ?? 0;
+
+    const captureFps =
+        state.capture_fps ?? 0;
 
 
-    const facesElement =
-        document.getElementById("faces");
-
-    if (facesElement) {
-
-        facesElement.textContent =
-            faces;
-    }
+    document.getElementById(
+        "faces"
+    ).textContent =
+        faces;
 
 
-    const directionElement =
-        document.getElementById(
-            "direction"
-        );
-
-    if (directionElement) {
-
-        directionElement.textContent =
-            direction;
-    }
+    document.getElementById(
+        "direction"
+    ).textContent =
+        direction;
 
 
-    const eyesElement =
-        document.getElementById("eyes");
-
-    if (eyesElement) {
-
-        eyesElement.textContent =
-            eyes;
-    }
+    document.getElementById(
+        "eyes"
+    ).textContent =
+        eyes;
 
 
-    const fpsElement =
-        document.getElementById("fps");
-
-    if (fpsElement) {
-
-        fpsElement.textContent =
-            Number(fps).toFixed(1);
-    }
+    // Show AI processing FPS.
+    document.getElementById(
+        "fps"
+    ).textContent =
+        Number(fps).toFixed(1);
 }
 
 
@@ -306,14 +347,13 @@ function updateMetrics(state) {
 function updateCurrentEvent(state) {
 
     const event =
-        state.event ||
-        state.new_event ||
-        state.alert ||
         state.last_event ||
         null;
 
     const eventBox =
-        document.getElementById("event");
+        document.getElementById(
+            "event"
+        );
 
     if (!eventBox) {
         return;
@@ -337,8 +377,10 @@ function updateCurrentEvent(state) {
         event.event_type ||
         "UNKNOWN EVENT";
 
+
     const direction =
         event.direction || "";
+
 
     const duration =
         event.duration != null
@@ -355,7 +397,8 @@ function updateCurrentEvent(state) {
 
         details += `
             <div>
-                Direction: ${direction}
+                Direction:
+                ${direction}
             </div>
         `;
     }
@@ -365,7 +408,8 @@ function updateCurrentEvent(state) {
 
         details += `
             <div>
-                Duration: ${duration} sec
+                Duration:
+                ${duration} sec
             </div>
         `;
     }
@@ -375,7 +419,8 @@ function updateCurrentEvent(state) {
         <div class="active-event">
 
             <div class="event-title">
-                🚨 ${formatEventType(type)}
+                🚨
+                ${formatEventType(type)}
             </div>
 
             ${details}
@@ -401,7 +446,10 @@ function renderEventHistory(events) {
     }
 
 
-    if (!events || events.length === 0) {
+    if (
+        !events ||
+        events.length === 0
+    ) {
 
         container.innerHTML = `
             <div class="no-events">
@@ -413,7 +461,6 @@ function renderEventHistory(events) {
     }
 
 
-    // Newest event first
     const orderedEvents =
         [...events].reverse();
 
@@ -427,8 +474,10 @@ function renderEventHistory(events) {
                     event.event_type ||
                     "UNKNOWN EVENT";
 
+
                 const direction =
                     event.direction;
+
 
                 const duration =
                     event.duration != null
@@ -436,6 +485,7 @@ function renderEventHistory(events) {
                             event.duration
                         ).toFixed(2)
                         : null;
+
 
                 const timestamp =
                     event.timestamp ||
@@ -458,28 +508,26 @@ function renderEventHistory(events) {
 
                         </div>
 
-
                         ${
                             direction
-                            ? `
-                                <div class="event-detail">
-                                    Direction:
-                                    ${direction}
-                                </div>
-                            `
-                            : ""
+                                ? `
+                                    <div class="event-detail">
+                                        Direction:
+                                        ${direction}
+                                    </div>
+                                  `
+                                : ""
                         }
-
 
                         ${
                             duration !== null
-                            ? `
-                                <div class="event-detail">
-                                    Duration:
-                                    ${duration} sec
-                                </div>
-                            `
-                            : ""
+                                ? `
+                                    <div class="event-detail">
+                                        Duration:
+                                        ${duration} sec
+                                    </div>
+                                  `
+                                : ""
                         }
 
                     </div>
@@ -571,7 +619,8 @@ document.addEventListener(
                 stopExam
             );
 
-            stopButton.disabled = true;
+            stopButton.disabled =
+                true;
         }
 
 

@@ -10,7 +10,9 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>AI Exam Monitoring System</title>
+    <title>
+        AI Exam Monitoring System
+    </title>
 
     <link
         rel="stylesheet"
@@ -26,7 +28,9 @@
 
         <header>
 
-            <h1>🎥 AI Exam Monitoring System</h1>
+            <h1>
+                🎥 AI Exam Monitoring System
+            </h1>
 
             <p>
                 Real-time AI-powered examination monitoring
@@ -35,11 +39,14 @@
         </header>
 
 
+        <!-- ========================================= -->
+        <!-- CONTROLS -->
+        <!-- ========================================= -->
+
         <section class="controls">
 
             <button
                 id="startBtn"
-                onclick="startExam()"
             >
                 ▶ Start Exam
             </button>
@@ -47,7 +54,6 @@
 
             <button
                 id="stopBtn"
-                onclick="stopExam()"
                 disabled
             >
                 ⏹ Stop Exam
@@ -56,20 +62,30 @@
         </section>
 
 
+        <!-- ========================================= -->
+        <!-- SESSION INFO -->
+        <!-- ========================================= -->
+
         <section id="sessionInfo">
 
             <div>
-                <strong>Status:</strong>
+
+                <strong>
+                    Status:
+                </strong>
 
                 <span id="status">
                     NOT RUNNING
                 </span>
+
             </div>
 
 
             <div>
 
-                <strong>Session:</strong>
+                <strong>
+                    Session:
+                </strong>
 
                 <span id="sessionId">
                     -
@@ -80,11 +96,22 @@
         </section>
 
 
+        <!-- ========================================= -->
+        <!-- MAIN MONITOR -->
+        <!-- ========================================= -->
+
         <main>
+
+
+            <!-- ===================================== -->
+            <!-- VIDEO -->
+            <!-- ===================================== -->
 
             <div class="video-card">
 
-                <h2>Live Monitoring</h2>
+                <h2>
+                    Live Monitoring
+                </h2>
 
                 <img
                     id="video"
@@ -95,16 +122,27 @@
             </div>
 
 
+            <!-- ===================================== -->
+            <!-- MONITORING PANEL -->
+            <!-- ===================================== -->
+
             <div class="monitor-card">
 
-                <h2>Monitoring Status</h2>
+                <h2>
+                    Monitoring Status
+                </h2>
 
+
+                <!-- METRICS -->
 
                 <div class="metrics">
 
+
                     <div class="metric">
 
-                        <span>Faces</span>
+                        <span>
+                            Faces
+                        </span>
 
                         <strong id="faces">
                             -
@@ -115,7 +153,9 @@
 
                     <div class="metric">
 
-                        <span>Direction</span>
+                        <span>
+                            Direction
+                        </span>
 
                         <strong id="direction">
                             -
@@ -126,7 +166,9 @@
 
                     <div class="metric">
 
-                        <span>Eyes</span>
+                        <span>
+                            Eyes
+                        </span>
 
                         <strong id="eyes">
                             -
@@ -137,7 +179,9 @@
 
                     <div class="metric">
 
-                        <span>FPS</span>
+                        <span>
+                            AI FPS
+                        </span>
 
                         <strong id="fps">
                             -
@@ -148,6 +192,8 @@
                 </div>
 
 
+                <!-- CURRENT EVENT -->
+
                 <div
                     id="event"
                     class="event"
@@ -155,9 +201,14 @@
                     No active monitoring alert.
                 </div>
 
-                <div class = "event-history">
-                    
-                    <h3>Monitoring Event History</h3>
+
+                <!-- EVENT HISTORY -->
+
+                <div class="event-history">
+
+                    <h3>
+                        Monitoring Event History
+                    </h3>
 
                     <div id="eventHistory">
 
@@ -166,8 +217,8 @@
                         </div>
 
                     </div>
+
                 </div>
-                    
 
             </div>
 
@@ -176,7 +227,9 @@
     </div>
 
 
-    <script src="/static/app.js"></script>
+    <script
+        src="/static/app.js"
+    ></script>
 
 </body>
 

@@ -31,31 +31,33 @@ class ThreadedCamera:
         self._fps_start_time = None
         self._fps_frame_count = 0
 
+    # ======================================================
+    # START CAMERA
+    # ======================================================
+
     def start(self):
 
         if self.running:
             return
 
-        # Windows: use DirectShow instead of MSMF.
+        # Use DirectShow on Windows.
+        # This avoids the repeated MSMF grabFrame warnings.
         self.cap = cv2.VideoCapture(
             self.camera_index,
             cv2.CAP_DSHOW
         )
 
         if not self.cap.isOpened():
-            # Fallback to default backend.
+
             self.cap.release()
+            self.cap = None
 
-            self.cap = cv2.VideoCapture(
-                self.camera_index
-            )
-
-        if not self.cap.isOpened():
             raise RuntimeError(
-                f"Could not open camera {self.camera_index}"
+                f"Could not open camera "
+                f"{self.camera_index} using DirectShow."
             )
 
-        # Camera configuration.
+        # Camera settings
         self.cap.set(
             cv2.CAP_PROP_FRAME_WIDTH,
             self.width
@@ -71,7 +73,8 @@ class ThreadedCamera:
             self.target_fps
         )
 
-        # Keep only the newest frame.
+        # Request a small buffer so old frames
+        # do not accumulate.
         self.cap.set(
             cv2.CAP_PROP_BUFFERSIZE,
             1
@@ -84,7 +87,10 @@ class ThreadedCamera:
 
         self.actual_fps = 0.0
 
-        self._fps_start_time = time.perf_counter()
+        self._fps_start_time = (
+            time.perf_counter()
+        )
+
         self._fps_frame_count = 0
 
         self.thread = threading.Thread(
@@ -94,7 +100,7 @@ class ThreadedCamera:
 
         self.thread.start()
 
-        # Wait until the first frame arrives.
+        # Wait for the first frame.
         start_wait = time.perf_counter()
 
         while self.latest_frame is None:
@@ -104,14 +110,19 @@ class ThreadedCamera:
                 - start_wait
                 > 2.0
             ):
+
                 self.stop()
 
                 raise RuntimeError(
-                    "Camera started but no frame "
-                    "was received."
+                    "Camera started but "
+                    "no frame was received."
                 )
 
             time.sleep(0.01)
+
+    # ======================================================
+    # CAPTURE LOOP
+    # ======================================================
 
     def _capture_loop(self):
 
@@ -150,6 +161,10 @@ class ThreadedCamera:
                     time.perf_counter()
                 )
 
+    # ======================================================
+    # READ LATEST FRAME
+    # ======================================================
+
     def read(self):
 
         with self.lock:
@@ -159,14 +174,27 @@ class ThreadedCamera:
 
             return self.latest_frame.copy()
 
+    # ======================================================
+    # FPS
+    # ======================================================
+
     def get_fps(self):
 
         return self.actual_fps
 
+    # ======================================================
+    # FRAME COUNT
+    # ======================================================
+
     def get_frame_count(self):
 
         with self.lock:
+
             return self.frame_count
+
+    # ======================================================
+    # STOP
+    # ======================================================
 
     def stop(self):
 
@@ -183,12 +211,15 @@ class ThreadedCamera:
         if self.cap is not None:
 
             self.cap.release()
-
             self.cap = None
 
         with self.lock:
 
             self.latest_frame = None
+
+    # ======================================================
+    # STATUS
+    # ======================================================
 
     def is_running(self):
 
