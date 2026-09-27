@@ -11,6 +11,9 @@ from src.monitoring.event_logger import EventLogger
 from src.monitoring.face_monitor import FaceMonitor
 from src.eyes.eye_monitor import EyeMonitor
 
+from src.detection.person_detector import PersonDetector
+from src.detection.detection_worker import DetectionWorker
+
 
 MODEL_PATH = "models/face/face_landmarker.task"
 
@@ -46,6 +49,23 @@ class ExamMonitor:
             closure_threshold=0.20,
             closed_duration_threshold=2.0
         )
+
+        # ==================================================
+        # YOLO PERSON DETECTION
+        # ==================================================
+
+        self.person_detector = PersonDetector(
+            model_path="yolo11n.pt",
+            confidence=0.50
+        )
+
+        self.detection_worker = DetectionWorker(
+            detector=self.person_detector,
+            detection_interval=0.15
+        )
+
+        self.additional_person_start = None
+        self.additional_person_active = False
 
         # ==================================================
         # DATABASE
@@ -189,6 +209,9 @@ class ExamMonitor:
         self.last_event = None
         self.last_event_time = 0
 
+        self.additional_person_start = None
+        self.additional_person_active = False
+
         # -----------------------------------------------
         # START THREADED CAMERA
         # -----------------------------------------------
@@ -196,6 +219,14 @@ class ExamMonitor:
         try:
 
             self.camera.start()
+
+            # -------------------------------------------
+            # START YOLO DETECTION WORKER
+            # -------------------------------------------
+
+            self.detection_worker.start()
+
+            self.additional_person_start = None
 
         except Exception:
 
@@ -245,6 +276,41 @@ class ExamMonitor:
             frame,
             1
         )
+
+        # ==================================================
+        # YOLO PERSON DETECTION
+        # ==================================================
+
+        # Send the latest frame to the background
+        # YOLO worker. This does NOT block the
+        # MediaPipe processing pipeline.
+
+        self.detection_worker.update_frame(
+            frame
+        )
+
+        # Get the latest completed YOLO result.
+
+        detection_result = (
+            self.detection_worker.get_result()
+        )
+
+        # -----------------------------------------------
+        # ADDITIONAL PERSON CONFIRMATION
+        # -----------------------------------------------
+
+        additional_person_event = (
+            self._check_additional_person(
+                detection_result,
+                time.monotonic()
+            )
+        )
+
+        if additional_person_event is not None:
+
+            self._register_event(
+                additional_person_event
+            )
 
         # -----------------------------------------------
         # MEDIAPIPE TIMESTAMP
@@ -458,6 +524,84 @@ class ExamMonitor:
                     )
 
         # ==================================================
+        # DRAW YOLO PERSON DETECTIONS
+        # ==================================================
+
+        for person in detection_result.get(
+            "persons",
+            []
+        ):
+
+            x1, y1, x2, y2 = (
+                person["bbox"]
+            )
+
+            confidence = (
+                person["confidence"]
+            )
+
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                (255, 0, 0),
+                2
+            )
+
+            label = (
+                f"Person "
+                f"{confidence:.2f}"
+            )
+
+            cv2.putText(
+                frame,
+                label,
+                (
+                    x1,
+                    max(y1 - 10, 20)
+                ),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 0, 0),
+                2
+            )
+
+        # ==================================================
+        # PERSON COUNT DISPLAY
+        # ==================================================
+
+        person_count = (
+            detection_result.get(
+                "person_count",
+                0
+            )
+        )
+
+        yolo_fps = (
+            self.detection_worker.get_fps()
+        )
+
+        cv2.putText(
+            frame,
+            f"Persons: {person_count}",
+            (20, 75),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 0, 0),
+            2
+        )
+
+        cv2.putText(
+            frame,
+            f"YOLO FPS: {yolo_fps:.1f}",
+            (20, 105),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 0, 0),
+            2
+        )
+
+        # ==================================================
         # ATTENTION TRACKER
         # ==================================================
 
@@ -528,6 +672,14 @@ class ExamMonitor:
             )
 
         # ==================================================
+        # ADDITIONAL PERSON STATUS
+        # ==================================================
+
+        if person_count > 1:
+
+            self.status = "ADDITIONAL PERSON"
+
+        # ==================================================
         # FPS
         # ==================================================
 
@@ -565,8 +717,20 @@ class ExamMonitor:
             "capture_fps":
                 capture_fps,
 
+            "yolo_fps":
+                yolo_fps,
+
             "face_count":
                 self.face_count,
+
+            "person_count":
+                person_count,
+
+            "persons":
+                detection_result.get(
+                    "persons",
+                    []
+                ),
 
             "direction":
                 self.direction,
@@ -599,8 +763,82 @@ class ExamMonitor:
                 self.calibrated,
 
             "calibration_progress":
-                len(self.calibration_pitch)
+                len(
+                    self.calibration_pitch
+                )
         }
+
+    # ======================================================
+    # ADDITIONAL PERSON DETECTION
+    # ======================================================
+
+    def _check_additional_person(
+        self,
+        detection_result,
+        current_time
+    ):
+
+        person_count = (
+            detection_result.get(
+                "person_count",
+                0
+            )
+        )
+
+        # --------------------------------------------------
+        # One person or no person
+        # --------------------------------------------------
+
+        if person_count <= 1:
+
+            self.additional_person_start = None
+            self.additional_person_active = False
+
+            return None
+
+        # --------------------------------------------------
+        # ADDITIONAL PERSON DETECTED
+        # --------------------------------------------------
+
+        if self.additional_person_active:
+
+            return None
+        
+        # --------------------------------------------------
+        # START CONFIRMATION TIMER
+        # --------------------------------------------------
+        
+        if self.additional_person_start is None:
+            
+            self.additional_person_start = (
+                current_time
+            )
+            
+            return None
+
+        # --------------------------------------------------
+        # Calculate duration
+        # --------------------------------------------------
+
+        duration = (
+            current_time
+            - self.additional_person_start
+        )
+
+        # --------------------------------------------------
+        # Confirm after 1 second
+        # --------------------------------------------------
+
+        if duration >= 1.0:
+
+            self.additional_person_active = True
+
+            return {
+                "type": "ADDITIONAL_PERSON",
+                "duration": duration
+            }
+
+        return None
 
     # ======================================================
     # EVENT HANDLING
@@ -624,7 +862,23 @@ class ExamMonitor:
 
     def stop(self):
 
-        # Stop camera first.
+        # -----------------------------------------------
+        # STOP YOLO WORKER
+        # -----------------------------------------------
+
+        try:
+
+            self.detection_worker.stop()
+
+        except Exception as e:
+
+            print(
+                f"YOLO worker stop warning: {e}"
+            )
+
+        # -----------------------------------------------
+        # STOP CAMERA
+        # -----------------------------------------------
 
         try:
 
@@ -636,7 +890,9 @@ class ExamMonitor:
                 f"Camera stop warning: {e}"
             )
 
-        # End database session.
+        # -----------------------------------------------
+        # END DATABASE SESSION
+        # -----------------------------------------------
 
         if self.session_id is not None:
 
@@ -673,6 +929,10 @@ class ExamMonitor:
             else 0
         )
 
+        detection_result = (
+            self.detection_worker.get_result()
+        )
+
         return {
 
             "session_id":
@@ -680,6 +940,18 @@ class ExamMonitor:
 
             "face_count":
                 self.face_count,
+
+            "person_count":
+                detection_result.get(
+                    "person_count",
+                    0
+                ),
+
+            "persons":
+                detection_result.get(
+                    "persons",
+                    []
+                ),
 
             "direction":
                 self.direction,
@@ -699,6 +971,9 @@ class ExamMonitor:
             "capture_fps":
                 self.camera.get_fps(),
 
+            "yolo_fps":
+                self.detection_worker.get_fps(),
+
             "calibrated":
                 self.calibrated,
 
@@ -712,12 +987,31 @@ class ExamMonitor:
 
     def close(self):
 
+        # -----------------------------------------------
+        # STOP YOLO WORKER
+        # -----------------------------------------------
+
+        try:
+
+            self.detection_worker.stop()
+
+        except Exception:
+            pass
+
+        # -----------------------------------------------
+        # STOP CAMERA
+        # -----------------------------------------------
+
         try:
 
             self.camera.stop()
 
         except Exception:
             pass
+
+        # -----------------------------------------------
+        # CLOSE FACE LANDMARKER
+        # -----------------------------------------------
 
         if self.face_landmarker is not None:
 
@@ -729,6 +1023,10 @@ class ExamMonitor:
                 pass
 
             self.face_landmarker = None
+
+        # -----------------------------------------------
+        # CLOSE DATABASE LOGGER
+        # -----------------------------------------------
 
         if self.logger is not None:
 
