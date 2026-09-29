@@ -6,45 +6,53 @@ class ObjectDetector:
     """
     YOLO-based object detector for exam monitoring.
 
-    Phase 1 uses the pretrained YOLO11n COCO model.
-    Only classes that exist in the pretrained model are enabled initially.
+    Uses the custom-trained YOLO model for the 7 target
+    exam-monitoring object classes.
 
-    Supported pretrained classes relevant to our project:
-        - cell phone -> mobile phone
-        - book
-        - laptop
+    Target classes:
+        0 - mobile_phone
+        1 - earphones
+        2 - smartwatch
+        3 - book
+        4 - paper_notes
+        5 - laptop
+        6 - tablet
     """
 
-    # COCO class IDs used by YOLO
     CLASS_MAP = {
-        63: "mobile phone",
-        73: "book",
-        67: "laptop",
+        0: "mobile_phone",
+        1: "earphones",
+        2: "smartwatch",
+        3: "book",
+        4: "paper_notes",
+        5: "laptop",
+        6: "tablet",
     }
 
     TARGET_CLASSES = [
-        "mobile phone",
+        "mobile_phone",
         "earphones",
         "smartwatch",
         "book",
-        "paper",
+        "paper_notes",
         "laptop",
         "tablet",
     ]
 
-    PRETRAINED_SUPPORTED_CLASSES = {
-        "mobile phone",
-        "book",
-        "laptop",
-    }
-
     def __init__(
         self,
-        model_path="yolo11n.pt",
-        confidence=0.50
+        model_path=(
+            "runs/detect/runs/object_detection/"
+            "exam_objects_v1/weights/best.pt"
+        ),
+        confidence=0.40,
+        image_size=640,
+        device="cpu",
     ):
         self.model_path = model_path
         self.confidence = confidence
+        self.image_size = image_size
+        self.device = device
 
         print(f"Loading YOLO object model: {model_path}")
 
@@ -53,11 +61,8 @@ class ObjectDetector:
         print("YOLO object model loaded successfully.")
 
         print("\nTarget object classes:")
-        for target in self.TARGET_CLASSES:
-            if target in self.PRETRAINED_SUPPORTED_CLASSES:
-                print(f"  [PRETRAINED] {target}")
-            else:
-                print(f"  [NEEDS TRAINING] {target}")
+        for class_id, class_name in self.CLASS_MAP.items():
+            print(f"  [{class_id}] {class_name}")
 
     def detect(self, frame):
         """
@@ -80,21 +85,21 @@ class ObjectDetector:
         if frame is None:
             return {
                 "object_count": 0,
-                "objects": []
+                "objects": [],
             }
 
         results = self.model.predict(
             source=frame,
-            imgsz=640,
+            imgsz=self.image_size,
             conf=self.confidence,
-            device="cpu",
-            verbose=False
+            device=self.device,
+            verbose=False,
         )
 
         if not results:
             return {
                 "object_count": 0,
-                "objects": []
+                "objects": [],
             }
 
         result = results[0]
@@ -102,7 +107,7 @@ class ObjectDetector:
         if result.boxes is None:
             return {
                 "object_count": 0,
-                "objects": []
+                "objects": [],
             }
 
         objects = []
@@ -112,7 +117,7 @@ class ObjectDetector:
         for index in range(len(boxes)):
             class_id = int(boxes.cls[index].item())
 
-            # Ignore classes outside our monitoring requirements.
+            # Ignore unexpected class IDs.
             if class_id not in self.CLASS_MAP:
                 continue
 
@@ -135,20 +140,23 @@ class ObjectDetector:
                         int(x1),
                         int(y1),
                         int(x2),
-                        int(y2)
-                    ]
+                        int(y2),
+                    ],
                 }
             )
 
         return {
             "object_count": len(objects),
-            "objects": objects
+            "objects": objects,
         }
 
     def draw_detections(self, frame, detection_result):
         """
         Draw detected monitoring objects on the frame.
         """
+
+        if frame is None:
+            return frame
 
         output = frame.copy()
 
@@ -163,7 +171,7 @@ class ObjectDetector:
                 (x1, y1),
                 (x2, y2),
                 (0, 255, 255),
-                2
+                2,
             )
 
             label = f"{class_name} {confidence:.2f}"
@@ -175,7 +183,7 @@ class ObjectDetector:
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.6,
                 (0, 255, 255),
-                2
+                2,
             )
 
         cv2.putText(
@@ -185,28 +193,54 @@ class ObjectDetector:
             cv2.FONT_HERSHEY_SIMPLEX,
             0.9,
             (0, 255, 255),
-            2
+            2,
         )
 
         return output
 
+    def detect_and_draw(self, frame):
+        """
+        Run detection and draw the results.
+
+        Returns:
+            (
+                detection_result,
+                annotated_frame
+            )
+        """
+
+        detection_result = self.detect(frame)
+
+        annotated_frame = self.draw_detections(
+            frame,
+            detection_result,
+        )
+
+        return detection_result, annotated_frame
+
+    def get_detected_classes(self, detection_result):
+        """
+        Return unique detected class names.
+        """
+
+        return list(
+            dict.fromkeys(
+                obj["class_name"]
+                for obj in detection_result.get("objects", [])
+            )
+        )
+
     def get_supported_classes(self):
         """
-        Return classes that can currently be detected
-        by the pretrained model.
+        Return all classes supported by the
+        custom-trained model.
         """
 
-        return sorted(
-            self.PRETRAINED_SUPPORTED_CLASSES
-        )
+        return self.TARGET_CLASSES.copy()
 
-    def get_training_required_classes(self):
+    def close(self):
         """
-        Return target classes that will require
-        additional training/fine-tuning.
+        Release the YOLO model reference.
         """
 
-        return sorted(
-            set(self.TARGET_CLASSES)
-            - self.PRETRAINED_SUPPORTED_CLASSES
-        )
+        self.model = None

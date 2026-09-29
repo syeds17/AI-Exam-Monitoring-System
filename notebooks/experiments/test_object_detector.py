@@ -3,90 +3,66 @@ import cv2
 from src.detection.object_detector import ObjectDetector
 
 
-def main():
+MODEL_PATH = (
+    "runs/detect/runs/object_detection/"
+    "exam_objects_v1/weights/best.pt"
+)
 
-    print("=" * 60)
-    print("YOLO OBJECT DETECTOR TEST")
-    print("=" * 60)
+
+def main():
+    print("Initializing object detector...")
 
     detector = ObjectDetector(
-        model_path="yolo11n.pt",
-        confidence=0.50
+        model_path=MODEL_PATH,
+        confidence=0.40,
+        image_size=640,
+        device="cpu",
     )
 
-    print("\nPretrained classes currently supported:")
-    for class_name in detector.get_supported_classes():
-        print(f"  - {class_name}")
-
-    print("\nClasses requiring training:")
-    for class_name in detector.get_training_required_classes():
-        print(f"  - {class_name}")
-
-    print("\nStarting webcam...")
-    print("Press Q to quit.")
-
-    camera = cv2.VideoCapture(
-        0,
-        cv2.CAP_DSHOW
-    )
+    camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
     if not camera.isOpened():
-        raise RuntimeError(
-            "Could not open webcam."
-        )
+        print("ERROR: Could not open webcam.")
+        detector.close()
+        return
 
-    camera.set(
-        cv2.CAP_PROP_FRAME_WIDTH,
-        1280
-    )
+    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    camera.set(
-        cv2.CAP_PROP_FRAME_HEIGHT,
-        720
-    )
-
-    detection_count = 0
+    print("\nObject detector test started.")
+    print("Press Q to quit.\n")
 
     try:
-
         while True:
-
             success, frame = camera.read()
 
             if not success:
-                print("Failed to read frame.")
-                continue
-
-            frame = cv2.flip(frame, 1)
+                print("ERROR: Could not read frame.")
+                break
 
             detection_result = detector.detect(frame)
 
-            detection_count += 1
-
-            display_frame = detector.draw_detections(
+            output = detector.draw_detections(
                 frame,
-                detection_result
+                detection_result,
             )
 
-            detected_objects = detection_result.get(
-                "objects",
-                []
-            )
+            # Print detections only when objects are found.
+            objects = detection_result["objects"]
 
-            if detected_objects:
-
+            if objects:
                 print("\nDetected objects:")
 
-                for obj in detected_objects:
-
+                for obj in objects:
                     print(
                         f"  {obj['class_name']} "
-                        f"({obj['confidence']:.2f})"
+                        f"({obj['confidence']:.2f}) "
+                        f"bbox={obj['bbox']}"
                     )
 
             cv2.imshow(
-                "YOLO Object Detector Test",
-                display_frame
+                "Custom Object Detector Test",
+                output,
             )
 
             key = cv2.waitKey(1) & 0xFF
@@ -94,15 +70,15 @@ def main():
             if key == ord("q"):
                 break
 
-    finally:
+    except KeyboardInterrupt:
+        print("\nTest interrupted.")
 
+    finally:
         camera.release()
         cv2.destroyAllWindows()
+        detector.close()
 
-        print("\n" + "=" * 60)
-        print("OBJECT DETECTOR TEST FINISHED")
-        print(f"Frames processed: {detection_count}")
-        print("=" * 60)
+        print("\nObject detector test stopped.")
 
 
 if __name__ == "__main__":
