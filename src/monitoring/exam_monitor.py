@@ -1,5 +1,7 @@
 import time
 import threading
+import os
+import re
 
 import cv2
 
@@ -13,6 +15,8 @@ from src.eyes.eye_monitor import EyeMonitor
 
 from src.detection.person_detector import PersonDetector
 from src.detection.detection_worker import DetectionWorker
+from src.detection.object_detector import ObjectDetector
+from src.detection.object_detection_worker import ObjectDetectionWorker
 
 
 MODEL_PATH = "models/face/face_landmarker.task"
@@ -63,6 +67,29 @@ class ExamMonitor:
             detector=self.person_detector,
             detection_interval=0.15
         )
+
+        # ==================================================
+        # YOLO OBJECT DETECTION
+        # ==================================================
+
+        self.object_detector = ObjectDetector(
+            model_path=(
+                "runs/detect/runs/object_detection/"
+                "exam_objects_v1/weights/best.pt"
+            ),
+            confidence=0.40,
+            image_size=640,
+            device="cpu"
+        )
+
+        self.object_detection_worker = ObjectDetectionWorker(
+            detector=self.object_detector,
+            detection_interval=0.30
+        )
+
+        self.detected_objects = []
+        self.object_count = 0
+        self.object_detection_fps = 0.0
 
         self.additional_person_start = None
         self.additional_person_active = False
@@ -139,6 +166,9 @@ class ExamMonitor:
         self.last_event = None
         self.last_event_time = 0
 
+        # Current processed frame used for one-time monitoring evidence capture.
+        self.current_frame = None
+
     # ======================================================
     # START EXAM
     # ======================================================
@@ -209,8 +239,14 @@ class ExamMonitor:
         self.last_event = None
         self.last_event_time = 0
 
+        self.current_frame = None
+
         self.additional_person_start = None
         self.additional_person_active = False
+
+        self.detected_objects = []
+        self.object_count = 0
+        self.object_detection_fps = 0.0
 
         # -----------------------------------------------
         # START THREADED CAMERA
@@ -221,10 +257,16 @@ class ExamMonitor:
             self.camera.start()
 
             # -------------------------------------------
-            # START YOLO DETECTION WORKER
+            # START YOLO PERSON DETECTION WORKER
             # -------------------------------------------
 
             self.detection_worker.start()
+
+            # -------------------------------------------
+            # START YOLO OBJECT DETECTION WORKER
+            # -------------------------------------------
+
+            self.object_detection_worker.start()
 
             self.additional_person_start = None
 
@@ -277,6 +319,10 @@ class ExamMonitor:
             1
         )
 
+        # Keep the latest displayed frame so confirmed events can save
+        # exactly one monitoring-evidence image.
+        self.current_frame = frame.copy()
+
         # ==================================================
         # YOLO PERSON DETECTION
         # ==================================================
@@ -293,6 +339,35 @@ class ExamMonitor:
 
         detection_result = (
             self.detection_worker.get_result()
+        )
+
+        # ==================================================
+        # YOLO OBJECT DETECTION
+        # ==================================================
+
+        # Send the latest frame to the background object
+        # detector. Object inference must not block the
+        # MediaPipe face/eye/head-pose pipeline.
+
+        self.object_detection_worker.update_frame(
+            frame
+        )
+
+        object_detection_result = (
+            self.object_detection_worker.get_result()
+        )
+
+        self.object_count = object_detection_result.get(
+            "object_count",
+            0
+        )
+
+        self.detected_objects = (
+            object_detection_result.get("objects", [])
+        )
+
+        self.object_detection_fps = (
+            self.object_detection_worker.get_fps()
         )
 
         # -----------------------------------------------
@@ -602,6 +677,58 @@ class ExamMonitor:
         )
 
         # ==================================================
+        # DRAW YOLO OBJECT DETECTIONS
+        # ==================================================
+
+        for obj in self.detected_objects:
+
+            x1, y1, x2, y2 = obj["bbox"]
+            class_name = obj["class_name"]
+            confidence = obj["confidence"]
+
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 255),
+                2
+            )
+
+            label = (
+                f"{class_name} {confidence:.2f}"
+            )
+
+            cv2.putText(
+                frame,
+                label,
+                (x1, max(y1 - 10, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 255),
+                2
+            )
+
+        cv2.putText(
+            frame,
+            f"Objects: {self.object_count}",
+            (20, 135),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
+            2
+        )
+
+        cv2.putText(
+            frame,
+            f"Object YOLO FPS: {self.object_detection_fps:.1f}",
+            (20, 165),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
+            2
+        )
+
+        # ==================================================
         # ATTENTION TRACKER
         # ==================================================
 
@@ -732,6 +859,15 @@ class ExamMonitor:
                     []
                 ),
 
+            "object_count":
+                self.object_count,
+
+            "objects":
+                self.detected_objects,
+
+            "object_detection_fps":
+                self.object_detection_fps,
+
             "direction":
                 self.direction,
 
@@ -846,6 +982,20 @@ class ExamMonitor:
 
     def _register_event(self, event):
 
+        # --------------------------------------------------
+        # CAPTURE ONE MONITORING-EVIDENCE IMAGE
+        # --------------------------------------------------
+        # Evidence is captured only when an event is confirmed.
+        # We do not save every webcam frame.
+        event = dict(event)
+
+        evidence_path = self._capture_evidence(
+            event
+        )
+
+        if evidence_path is not None:
+            event["evidence_path"] = evidence_path
+
         self.last_event = event
 
         self.last_event_time = (
@@ -856,6 +1006,94 @@ class ExamMonitor:
             event
         )
 
+    def _capture_evidence(self, event):
+        """Save one evidence image for a confirmed monitoring event."""
+
+        if self.current_frame is None:
+            return None
+
+        if self.session_id is None:
+            return None
+
+        try:
+            session_dir = os.path.join(
+                "data",
+                "evidence",
+                str(self.session_id)
+            )
+
+            os.makedirs(
+                session_dir,
+                exist_ok=True
+            )
+
+            event_type = str(
+                event.get("type", "EVENT")
+            )
+
+            direction = str(
+                event.get("direction", "")
+            )
+
+            # Keep filenames Windows-safe and easy to identify.
+            label = (
+                f"{event_type}_{direction}"
+                if direction
+                else event_type
+            )
+
+            label = re.sub(
+                r"[^A-Za-z0-9_-]+",
+                "_",
+                label
+            ).strip("_")
+
+            timestamp = time.strftime(
+                "%Y%m%d_%H%M%S"
+            )
+
+            milliseconds = int(
+                (time.time() % 1) * 1000
+            )
+
+            filename = (
+                f"{timestamp}_{milliseconds:03d}"
+                f"_{label}.jpg"
+            )
+
+            full_path = os.path.join(
+                session_dir,
+                filename
+            )
+
+            saved = cv2.imwrite(
+                full_path,
+                self.current_frame
+            )
+
+            if not saved:
+                print(
+                    f"Evidence save failed: {full_path}"
+                )
+                return None
+
+            print(
+                f"Evidence captured: {full_path}"
+            )
+
+            # Store a project-relative path in SQLite.
+            return os.path.relpath(
+                full_path
+            ).replace(os.sep, "/")
+
+        except Exception as e:
+
+            print(
+                f"Evidence capture warning: {e}"
+            )
+
+            return None
+
     # ======================================================
     # STOP
     # ======================================================
@@ -863,7 +1101,21 @@ class ExamMonitor:
     def stop(self):
 
         # -----------------------------------------------
-        # STOP YOLO WORKER
+        # STOP YOLO OBJECT DETECTION WORKER
+        # -----------------------------------------------
+
+        try:
+
+            self.object_detection_worker.stop()
+
+        except Exception as e:
+
+            print(
+                f"Object detection worker stop warning: {e}"
+            )
+
+        # -----------------------------------------------
+        # STOP YOLO PERSON DETECTION WORKER
         # -----------------------------------------------
 
         try:
@@ -953,6 +1205,21 @@ class ExamMonitor:
                     []
                 ),
 
+            "object_count":
+                self.object_detection_worker.get_result().get(
+                    "object_count",
+                    0
+                ),
+
+            "objects":
+                self.object_detection_worker.get_result().get(
+                    "objects",
+                    []
+                ),
+
+            "object_detection_fps":
+                self.object_detection_worker.get_fps(),
+
             "direction":
                 self.direction,
 
@@ -988,7 +1255,29 @@ class ExamMonitor:
     def close(self):
 
         # -----------------------------------------------
-        # STOP YOLO WORKER
+        # STOP YOLO OBJECT DETECTION WORKER
+        # -----------------------------------------------
+
+        try:
+
+            self.object_detection_worker.stop()
+
+        except Exception:
+            pass
+
+        # -----------------------------------------------
+        # CLOSE YOLO OBJECT DETECTOR
+        # -----------------------------------------------
+
+        try:
+
+            self.object_detector.close()
+
+        except Exception:
+            pass
+
+        # -----------------------------------------------
+        # STOP YOLO PERSON DETECTION WORKER
         # -----------------------------------------------
 
         try:

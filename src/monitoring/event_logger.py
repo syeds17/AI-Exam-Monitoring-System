@@ -28,6 +28,10 @@ class EventLogger:
 
         cursor = self.connection.cursor()
 
+        # ==================================================
+        # SESSIONS TABLE
+        # ==================================================
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id TEXT PRIMARY KEY,
@@ -37,6 +41,10 @@ class EventLogger:
             )
         """)
 
+        # ==================================================
+        # EVENTS TABLE
+        # ==================================================
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,17 +52,24 @@ class EventLogger:
                 timestamp TEXT NOT NULL,
                 event_type TEXT NOT NULL,
                 direction TEXT,
-                duration REAL
+                duration REAL,
+                evidence_path TEXT
             )
         """)
-        
+
+        # ==================================================
+        # DATABASE MIGRATION
+        # ==================================================
+
         cursor.execute("PRAGMA table_info(events)")
-        
+
         columns = [
             row[1]
             for row in cursor.fetchall()
         ]
-        
+
+        # Older databases may already exist without
+        # session_id.
         if "session_id" not in columns:
 
             cursor.execute("""
@@ -62,8 +77,19 @@ class EventLogger:
                 ADD COLUMN session_id TEXT
             """)
 
+        # Add evidence_path to an existing database.
+        if "evidence_path" not in columns:
+
+            cursor.execute("""
+                ALTER TABLE events
+                ADD COLUMN evidence_path TEXT
+            """)
 
         self.connection.commit()
+
+    # ======================================================
+    # START SESSION
+    # ======================================================
 
     def start_session(self):
 
@@ -99,6 +125,10 @@ class EventLogger:
 
         return self.session_id
 
+    # ======================================================
+    # END SESSION
+    # ======================================================
+
     def end_session(self):
 
         if self.session_id is None:
@@ -124,6 +154,10 @@ class EventLogger:
         )
 
         self.connection.commit()
+
+    # ======================================================
+    # LOG EVENT
+    # ======================================================
 
     def log_event(self, event):
 
@@ -152,6 +186,10 @@ class EventLogger:
             "duration"
         )
 
+        evidence_path = event.get(
+            "evidence_path"
+        )
+
         cursor = self.connection.cursor()
 
         cursor.execute(
@@ -161,20 +199,26 @@ class EventLogger:
                 timestamp,
                 event_type,
                 direction,
-                duration
+                duration,
+                evidence_path
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 self.session_id,
                 timestamp,
                 event_type,
                 direction,
-                duration
+                duration,
+                evidence_path
             )
         )
 
         self.connection.commit()
+
+    # ======================================================
+    # GET EVENTS
+    # ======================================================
 
     def get_events(self, session_id=None):
 
@@ -191,7 +235,8 @@ class EventLogger:
                 timestamp,
                 event_type,
                 direction,
-                duration
+                duration,
+                evidence_path
             FROM events
             WHERE session_id = ?
             ORDER BY id DESC
@@ -200,6 +245,10 @@ class EventLogger:
         )
 
         return cursor.fetchall()
+
+    # ======================================================
+    # GET SESSIONS
+    # ======================================================
 
     def get_sessions(self):
 
@@ -216,6 +265,10 @@ class EventLogger:
         """)
 
         return cursor.fetchall()
+
+    # ======================================================
+    # CLOSE
+    # ======================================================
 
     def close(self):
 
