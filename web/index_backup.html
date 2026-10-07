@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>AI Assessment Monitoring</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+</head>
+
+<body>
+
+    <!-- ===================================================== -->
+    <!-- APP -->
+    <!-- ===================================================== -->
+
+    <div id="app">
+
+        <!-- ================================================= -->
+        <!-- SIDEBAR -->
+        <!-- ================================================= -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="brand-logo">
+                    AI
+                </div>
+
+                <div class="brand-text">
+                    <h1>MonitorAI</h1>
+                    <span>Assessment Monitoring</span>
+                </div>
+
+            </div>
+
+
+            <nav class="sidebar-nav">
+
+                <button
+                    class="nav-item active"
+                    data-page="dashboard"
+                >
+                    <span class="nav-icon">⌂</span>
+                    <span>Dashboard</span>
+                </button>
+
+
+                <button
+                    class="nav-item"
+                    data-page="assessments"
+                >
+                    <span class="nav-icon">▣</span>
+                    <span>Assessments</span>
+                </button>
+
+
+                <button
+                    class="nav-item"
+                    data-page="requests"
+                >
+                    <span class="nav-icon">♙</span>
+                    <span>Candidate Requests</span>
+
+                    <span
+                        id="requestBadge"
+                        class="nav-badge hidden"
+                    >
+                        0
+                    </span>
+
+                </button>
+
+
+                <button
+                    class="nav-item"
+                    data-page="live"
+                >
+                    <span class="nav-icon">●</span>
+                    <span>Live Monitoring</span>
+                </button>
+
+            </nav>
+
+
+            <div class="sidebar-footer">
+
+                <div class="system-status">
+
+                    <span class="status-dot online"></span>
+
+                    <div>
+                        <strong>System Online</strong>
+                        <small>AI monitoring ready</small>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ================================================= -->
+        <!-- MAIN CONTENT -->
+        <!-- ================================================= -->
+
+        <main class="main-content">
+
+            <!-- ============================================= -->
+            <!-- TOPBAR -->
+            <!-- ============================================= -->
+
+            <header class="topbar">
+
+                <div>
+
+                    <h2 id="pageTitle">
+                        Dashboard
+                    </h2>
+
+                    <p id="pageSubtitle">
+                        Overview of your monitored assessments.
+                    </p>
+
+                </div>
+
+
+                <div class="topbar-actions">
+
+                    <button
+                        id="refreshBtn"
+                        class="icon-btn"
+                        title="Refresh"
+                    >
+                        ↻
+                    </button>
+
+
+                    <button
+                        id="createAssessmentTopBtn"
+                        class="primary-btn"
+                    >
+                        + Create Assessment
+                    </button>
+
+                </div>
+
+            </header>
+
+
+            <!-- ================================================= -->
+            <!-- DASHBOARD PAGE -->
+            <!-- ================================================= -->
+
+            <section
+                id="dashboardPage"
+                class="page active-page"
+            >
+
+                <div class="welcome-card">
+
+                    <div>
+
+                        <span class="eyebrow">
+                            AI ASSESSMENT MONITORING
+                        </span>
+
+                        <h1>
+                            Monitor assessments with confidence.
+                        </h1>
+
+                        <p>
+                            Create assessments, authorize candidates,
+                            monitor sessions and review AI-detected
+                            monitoring events.
+                        </p>
+
+                    </div>
+
+
+                    <button
+                        id="dashboardCreateBtn"
+                        class="primary-btn large-btn"
+                    >
+                        + Create Assessment
+                    </button>
+
+                </div>
+
+
+                <!-- Statistics -->
+
+                <div class="stats-grid">
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            ▣
+                        </div>
+
+                        <div>
+                            <span>Total Assessments</span>
+
+                            <strong id="statTotalAssessments">
+                                0
+                            </strong>
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            ✓
+                        </div>
+
+                        <div>
+                            <span>Active Assessments</span>
+
+                            <strong id="statActiveAssessments">
+                                0
+                            </strong>
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            ♙
+                        </div>
+
+                        <div>
+                            <span>Authorized Candidates</span>
+
+                            <strong id="statAuthorizedCandidates">
+                                0
+                            </strong>
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            ●
+                        </div>
+
+                        <div>
+                            <span>Currently Monitoring</span>
+
+                            <strong id="statMonitoringCandidates">
+                                0
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Recent assessments -->
+
+                <div class="section-header">
+
+                    <div>
+                        <h3>Recent Assessments</h3>
+
+                        <p>
+                            Your latest assessment sessions.
+                        </p>
+                    </div>
+
+
+                    <button
+                        class="text-btn"
+                        data-page="assessments"
+                    >
+                        View All →
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="recentAssessments"
+                    class="assessment-grid"
+                >
+
+                    <div class="empty-state">
+                        <div class="empty-icon">▣</div>
+
+                        <h3>No assessments yet</h3>
+
+                        <p>
+                            Create your first assessment to get started.
+                        </p>
+
+                        <button
+                            class="primary-btn"
+                            id="emptyCreateBtn"
+                        >
+                            Create Assessment
+                        </button>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- ASSESSMENTS PAGE -->
+            <!-- ================================================= -->
+
+            <section
+                id="assessmentsPage"
+                class="page"
+            >
+
+                <div class="page-toolbar">
+
+                    <div>
+
+                        <h3>
+                            Assessments
+                        </h3>
+
+                        <p>
+                            Manage assessment links, candidates and
+                            monitoring sessions.
+                        </p>
+
+                    </div>
+
+
+                    <button
+                        class="primary-btn"
+                        id="assessmentsCreateBtn"
+                    >
+                        + Create Assessment
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="assessmentsList"
+                    class="assessment-list"
+                >
+
+                    <div class="loading-state">
+                        Loading assessments...
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- REQUESTS PAGE -->
+            <!-- ================================================= -->
+
+            <section
+                id="requestsPage"
+                class="page"
+            >
+
+                <div class="page-toolbar">
+
+                    <div>
+
+                        <h3>
+                            Candidate Access Requests
+                        </h3>
+
+                        <p>
+                            Review candidates requesting access to
+                            your assessments.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="requestsList"
+                    class="requests-list"
+                >
+
+                    <div class="empty-state compact">
+                        <div class="empty-icon">♙</div>
+
+                        <h3>
+                            No pending requests
+                        </h3>
+
+                        <p>
+                            Candidate access requests will appear here.
+                        </p>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- LIVE MONITORING PAGE -->
+            <!-- ================================================= -->
+
+            <section
+                id="livePage"
+                class="page"
+            >
+
+                <div class="page-toolbar">
+
+                    <div>
+
+                        <h3>
+                            Live Monitoring
+                        </h3>
+
+                        <p>
+                            Monitor candidates currently taking
+                            assessments.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="liveMonitoringGrid"
+                    class="live-monitoring-grid"
+                >
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ●
+                        </div>
+
+                        <h3>
+                            No active candidates
+                        </h3>
+
+                        <p>
+                            Candidates currently being monitored
+                            will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- CANDIDATE PORTAL -->
+            <!-- ================================================= -->
+
+            <section
+                id="candidatePage"
+                class="page candidate-page"
+            >
+
+                <div class="candidate-shell">
+
+                    <div class="candidate-brand">
+
+                        <div class="brand-logo">
+                            AI
+                        </div>
+
+                        <div>
+                            <strong>MonitorAI</strong>
+                            <span>Assessment Monitoring</span>
+                        </div>
+
+                    </div>
+
+
+                    <!-- Candidate access -->
+
+                    <div
+                        id="candidateAccessView"
+                        class="candidate-card"
+                    >
+
+                        <span class="eyebrow">
+                            CANDIDATE PORTAL
+                        </span>
+
+                        <h1>
+                            Access Assessment
+                        </h1>
+
+                        <p>
+                            Enter the assessment link or access token
+                            provided by your organization.
+                        </p>
+
+
+                        <div class="form-group">
+
+                            <label for="candidateAssessmentToken">
+                                Assessment Access Token
+                            </label>
+
+                            <input
+                                id="candidateAssessmentToken"
+                                type="text"
+                                placeholder="Enter assessment token"
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="candidateName">
+                                Candidate Name
+                            </label>
+
+                            <input
+                                id="candidateName"
+                                type="text"
+                                placeholder="Enter your full name"
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="candidateId">
+                                Candidate ID
+                            </label>
+
+                            <input
+                                id="candidateId"
+                                type="text"
+                                placeholder="Enter your candidate ID"
+                            >
+
+                        </div>
+
+
+                        <button
+                            id="candidateRequestBtn"
+                            class="primary-btn full-width"
+                        >
+                            Request Access
+                        </button>
+
+
+                        <div
+                            id="candidateAccessMessage"
+                            class="form-message hidden"
+                        ></div>
+
+                    </div>
+
+
+                    <!-- Waiting for authorization -->
+
+                    <div
+                        id="candidateWaitingView"
+                        class="candidate-card hidden"
+                    >
+
+                        <div class="waiting-icon">
+                            ⏳
+                        </div>
+
+                        <h1>
+                            Waiting for Approval
+                        </h1>
+
+                        <p>
+                            Your access request has been sent to the
+                            assessment author.
+                        </p>
+
+                        <div
+                            id="candidateWaitingDetails"
+                            class="candidate-status-box"
+                        ></div>
+
+                        <button
+                            id="candidateCheckAccessBtn"
+                            class="secondary-btn"
+                        >
+                            Check Access Status
+                        </button>
+
+                    </div>
+
+
+                    <!-- Authorized -->
+
+                    <div
+                        id="candidateAuthorizedView"
+                        class="candidate-card hidden"
+                    >
+
+                        <div class="success-icon">
+                            ✓
+                        </div>
+
+                        <h1>
+                            Access Approved
+                        </h1>
+
+                        <p>
+                            Your request has been approved.
+                            Use the access code below to continue.
+                        </p>
+
+
+                        <div class="access-code-box">
+
+                            <span>
+                                Your Access Code
+                            </span>
+
+                            <strong id="candidateAccessCode">
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <button
+                            id="candidateEnterAssessmentBtn"
+                            class="primary-btn full-width"
+                        >
+                            Continue to Assessment
+                        </button>
+
+                    </div>
+
+
+                    <!-- Monitoring preparation -->
+
+                    <div
+                        id="candidateReadyView"
+                        class="candidate-card wide hidden"
+                    >
+
+                        <div class="candidate-header">
+
+                            <div>
+
+                                <span class="eyebrow">
+                                    MONITORING SETUP
+                                </span>
+
+                                <h1 id="candidateReadyTitle">
+                                    Ready to Begin
+                                </h1>
+
+                            </div>
+
+                            <span
+                                id="candidateReadyStatus"
+                                class="status-pill ready"
+                            >
+                                READY
+                            </span>
+
+                        </div>
+
+
+                        <div class="camera-preview candidate-camera">
+
+                            <img
+                                id="candidateCameraPreview"
+                                src="/api/video"
+                                alt="Camera preview"
+                            >
+
+                            <div
+                                id="candidateCameraPlaceholder"
+                                class="camera-placeholder"
+                            >
+                                Camera preview will appear here.
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            id="candidateReadiness"
+                            class="readiness-grid"
+                        >
+
+                            <div class="readiness-item">
+
+                                <span class="readiness-indicator"></span>
+
+                                <div>
+                                    <strong>Camera</strong>
+                                    <small id="cameraReadiness">
+                                        Checking...
+                                    </small>
+                                </div>
+
+                            </div>
+
+
+                            <div class="readiness-item">
+
+                                <span class="readiness-indicator"></span>
+
+                                <div>
+                                    <strong>Face Detection</strong>
+                                    <small id="faceReadiness">
+                                        Checking...
+                                    </small>
+                                </div>
+
+                            </div>
+
+
+                            <div class="readiness-item">
+
+                                <span class="readiness-indicator"></span>
+
+                                <div>
+                                    <strong>Environment</strong>
+                                    <small id="environmentReadiness">
+                                        Checking...
+                                    </small>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="candidate-warning">
+
+                            <strong>
+                                Before starting
+                            </strong>
+
+                            <p>
+                                Ensure your face is clearly visible,
+                                your camera is working, and no
+                                unauthorized persons or objects are
+                                present in your surroundings.
+                            </p>
+
+                        </div>
+
+
+                        <button
+                            id="candidateStartMonitoringBtn"
+                            class="primary-btn large-btn full-width"
+                        >
+                            Start Monitoring
+                        </button>
+
+                    </div>
+
+
+                    <!-- Active monitoring -->
+
+                    <div
+                        id="candidateMonitoringView"
+                        class="candidate-card wide hidden"
+                    >
+
+                        <div class="candidate-header">
+
+                            <div>
+
+                                <span class="eyebrow">
+                                    MONITORING ACTIVE
+                                </span>
+
+                                <h1 id="candidateMonitoringTitle">
+                                    Assessment in Progress
+                                </h1>
+
+                            </div>
+
+                            <span
+                                class="status-pill active"
+                            >
+                                ● MONITORING
+                            </span>
+
+                        </div>
+
+
+                        <div class="candidate-monitor-video">
+
+                            <img
+                                id="candidateLiveVideo"
+                                src="/api/video"
+                                alt="Live monitoring camera"
+                            >
+
+                            <div class="monitoring-live-badge">
+                                ● LIVE
+                            </div>
+
+                        </div>
+
+
+                        <div class="monitoring-notice">
+
+                            <strong>
+                                Monitoring is active
+                            </strong>
+
+                            <p>
+                                Your webcam is being monitored for
+                                assessment integrity. Complete your
+                                assessment normally.
+                            </p>
+
+                        </div>
+
+
+                        <button
+                            id="candidateCompleteBtn"
+                            class="danger-btn large-btn full-width"
+                        >
+                            Assessment Completed
+                        </button>
+
+                    </div>
+
+
+                    <!-- Completed -->
+
+                    <div
+                        id="candidateCompletedView"
+                        class="candidate-card hidden"
+                    >
+
+                        <div class="success-icon">
+                            ✓
+                        </div>
+
+                        <h1>
+                            Assessment Completed
+                        </h1>
+
+                        <p>
+                            Your monitoring session has ended
+                            successfully.
+                        </p>
+
+                        <div class="candidate-status-box">
+
+                            <strong>
+                                You may now close this window.
+                            </strong>
+
+                            <span>
+                                Your monitoring data has been recorded
+                                for review by the assessment author.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- CREATE ASSESSMENT MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="createAssessmentModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <span class="eyebrow">
+                        NEW ASSESSMENT
+                    </span>
+
+                    <h2>
+                        Create Assessment
+                    </h2>
+
+                    <p>
+                        Configure the assessment monitoring session.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeCreateModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <form id="createAssessmentForm">
+
+                <div class="form-group">
+
+                    <label for="assessmentName">
+                        Assessment Name *
+                    </label>
+
+                    <input
+                        id="assessmentName"
+                        name="assessment_name"
+                        type="text"
+                        required
+                        placeholder="e.g. Internal Assessment – CSE"
+                    >
+
+                </div>
+
+
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label for="organization">
+                            Organization
+                        </label>
+
+                        <input
+                            id="organization"
+                            name="organization"
+                            type="text"
+                            placeholder="College / Company"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="assessmentType">
+                            Assessment Type
+                        </label>
+
+                        <select
+                            id="assessmentType"
+                            name="assessment_type"
+                        >
+
+                            <option value="College Exam">
+                                College Exam
+                            </option>
+
+                            <option value="Online Assessment">
+                                Online Assessment
+                            </option>
+
+                            <option value="Recruitment Test">
+                                Recruitment Test
+                            </option>
+
+                            <option value="Coding Assessment">
+                                Coding Assessment
+                            </option>
+
+                            <option value="Certification">
+                                Certification
+                            </option>
+
+                            <option value="Corporate Assessment">
+                                Corporate Assessment
+                            </option>
+
+                            <option value="Other">
+                                Other
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label for="scheduledAt">
+                            Scheduled Date & Time
+                        </label>
+
+                        <input
+                            id="scheduledAt"
+                            name="scheduled_at"
+                            type="datetime-local"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="durationMinutes">
+                            Duration (minutes)
+                        </label>
+
+                        <input
+                            id="durationMinutes"
+                            name="duration_minutes"
+                            type="number"
+                            min="1"
+                            value="60"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="candidateLimit">
+                        Candidate Limit
+                    </label>
+
+                    <input
+                        id="candidateLimit"
+                        name="candidate_limit"
+                        type="number"
+                        min="1"
+                        value="50"
+                    >
+
+                    <small class="field-help">
+                        Maximum number of candidates who can be
+                        authorized for this assessment.
+                    </small>
+
+                </div>
+
+
+                <div
+                    id="createAssessmentMessage"
+                    class="form-message hidden"
+                ></div>
+
+
+                <div class="form-actions">
+
+                    <button
+                        type="button"
+                        id="cancelCreateAssessmentBtn"
+                        class="secondary-btn"
+                    >
+                        Cancel
+                    </button>
+
+
+                    <button
+                        type="submit"
+                        class="primary-btn"
+                    >
+                        Create Assessment
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- ASSESSMENT DETAILS MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="assessmentDetailsModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content details-modal">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <span class="eyebrow">
+                        ASSESSMENT
+                    </span>
+
+                    <h2>
+                        Assessment Details
+                    </h2>
+
+                    <p>
+                        Assessment information and monitoring controls.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeDetailsModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div
+                id="assessmentDetailsContent"
+                class="details-content"
+            >
+                Loading...
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    id="detailsCloseBtn"
+                    class="secondary-btn"
+                >
+                    Close
+                </button>
+
+
+                <button
+                    id="detailsActivateBtn"
+                    class="primary-btn"
+                >
+                    Activate Assessment
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- CANDIDATE REQUEST MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="candidateRequestModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <span class="eyebrow">
+                        ACCESS REQUEST
+                    </span>
+
+                    <h2>
+                        Candidate Request
+                    </h2>
+
+                    <p>
+                        Review candidate access information.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeCandidateRequestModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div
+                id="candidateRequestContent"
+                class="details-content"
+            >
+                Loading...
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    id="rejectCandidateBtn"
+                    class="danger-outline-btn"
+                >
+                    Reject
+                </button>
+
+
+                <button
+                    id="approveCandidateBtn"
+                    class="primary-btn"
+                >
+                    Approve Candidate
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- CANDIDATE REVIEW MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="candidateReviewModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content review-modal">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <span class="eyebrow">
+                        HUMAN REVIEW
+                    </span>
+
+                    <h2>
+                        Candidate Review
+                    </h2>
+
+                    <p>
+                        Review AI-detected monitoring events and
+                        evidence before making a final decision.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeCandidateReviewModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div
+                id="candidateReviewContent"
+                class="review-content"
+            >
+                Loading...
+            </div>
+
+
+            <div class="review-decision">
+
+                <div class="form-group">
+
+                    <label for="reviewDecision">
+                        Reviewer Decision
+                    </label>
+
+                    <select id="reviewDecision">
+
+                        <option value="">
+                            Select decision
+                        </option>
+
+                        <option value="CHEATING">
+                            CHEATING
+                        </option>
+
+                        <option value="NOT_CHEATING">
+                            NOT_CHEATING
+                        </option>
+
+                        <option value="NEEDS_REVIEW">
+                            NEEDS_REVIEW
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="reviewNotes">
+                        Reviewer Notes
+                    </label>
+
+                    <textarea
+                        id="reviewNotes"
+                        rows="4"
+                        placeholder="Enter your review notes..."
+                    ></textarea>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    id="closeCandidateReviewBtn"
+                    class="secondary-btn"
+                >
+                    Close
+                </button>
+
+
+                <button
+                    id="saveCandidateReviewBtn"
+                    class="primary-btn"
+                >
+                    Save Review Decision
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- EVIDENCE MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="evidenceModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content evidence-modal">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <span class="eyebrow">
+                        MONITORING EVIDENCE
+                    </span>
+
+                    <h2>
+                        Evidence
+                    </h2>
+
+                    <p>
+                        Captured image associated with this
+                        monitoring event.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeEvidenceModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div class="evidence-container">
+
+                <img
+                    id="evidenceImage"
+                    src=""
+                    alt="Monitoring evidence"
+                >
+
+            </div>
+
+
+            <div
+                id="evidenceDetails"
+                class="evidence-details"
+            ></div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- TOAST -->
+    <!-- ===================================================== -->
+
+    <div
+        id="toast"
+        class="toast hidden"
+    >
+
+        <span id="toastMessage">
+            Notification
+        </span>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- JAVASCRIPT -->
+    <!-- ===================================================== -->
+
+    <script src="/static/app.js"></script>
+
+</body>
+
+</html>
