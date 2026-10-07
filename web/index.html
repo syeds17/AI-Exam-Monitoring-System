@@ -11,7 +11,7 @@
     >
 
     <title>
-        AI Exam Monitoring System
+        AI Online Assessment Monitoring System
     </title>
 
     <link
@@ -24,208 +24,1117 @@
 
 <body>
 
-    <div class="container">
+    <div class="app">
 
-        <header>
+        <!-- ================================================= -->
+        <!-- SIDEBAR -->
+        <!-- ================================================= -->
 
-            <h1>
-                🎥 AI Exam Monitoring System
-            </h1>
+        <aside class="sidebar">
 
-            <p>
-                Real-time AI-powered examination monitoring
-            </p>
+            <div class="brand">
 
-        </header>
+                <div class="brand-icon">
+                    🤖
+                </div>
 
+                <div>
 
-        <!-- ========================================= -->
-        <!-- CONTROLS -->
-        <!-- ========================================= -->
+                    <h1>
+                        AI Monitor
+                    </h1>
 
-        <section class="controls">
+                    <span>
+                        Assessment System
+                    </span>
 
-            <button
-                id="startBtn"
-            >
-                ▶ Start Exam
-            </button>
-
-
-            <button
-                id="stopBtn"
-                disabled
-            >
-                ⏹ Stop Exam
-            </button>
-
-        </section>
-
-
-        <!-- ========================================= -->
-        <!-- SESSION INFO -->
-        <!-- ========================================= -->
-
-        <section id="sessionInfo">
-
-            <div>
-
-                <strong>
-                    Status:
-                </strong>
-
-                <span id="status">
-                    NOT RUNNING
-                </span>
+                </div>
 
             </div>
 
 
-            <div>
+            <nav class="navigation">
 
-                <strong>
-                    Session:
-                </strong>
+                <button
+                    class="nav-item active"
+                    data-page="dashboard"
+                >
+                    <span>
+                        🏠
+                    </span>
 
-                <span id="sessionId">
-                    -
-                </span>
-
-            </div>
-
-        </section>
-
-
-        <!-- ========================================= -->
-        <!-- MAIN MONITOR -->
-        <!-- ========================================= -->
-
-        <main>
+                    Dashboard
+                </button>
 
 
-            <!-- ===================================== -->
-            <!-- VIDEO -->
-            <!-- ===================================== -->
+                <button
+                    class="nav-item"
+                    data-page="assessments"
+                >
+                    <span>
+                        📋
+                    </span>
 
-            <div class="video-card">
+                    Assessments
+                </button>
 
-                <h2>
+
+                <button
+                    class="nav-item"
+                    data-page="monitoring"
+                >
+                    <span>
+                        🎥
+                    </span>
+
                     Live Monitoring
-                </h2>
+                </button>
 
-                <img
-                    id="video"
-                    src=""
-                    alt="Live monitoring feed"
-                >
+            </nav>
+
+
+            <div class="sidebar-footer">
+
+                <div class="system-status">
+
+                    <span
+                        id="systemStatusDot"
+                        class="status-dot"
+                    >
+                    </span>
+
+                    <span id="systemStatus">
+                        System Ready
+                    </span>
+
+                </div>
 
             </div>
 
-
-            <!-- ===================================== -->
-            <!-- MONITORING PANEL -->
-            <!-- ===================================== -->
-
-            <div class="monitor-card">
-
-                <h2>
-                    Monitoring Status
-                </h2>
+        </aside>
 
 
-                <!-- METRICS -->
+        <!-- ================================================= -->
+        <!-- MAIN CONTENT -->
+        <!-- ================================================= -->
 
-                <div class="metrics">
-
-
-                    <div class="metric">
-
-                        <span>
-                            Faces
-                        </span>
-
-                        <strong id="faces">
-                            -
-                        </strong>
-
-                    </div>
+        <div class="main-content">
 
 
-                    <div class="metric">
+            <!-- ================================================= -->
+            <!-- TOP BAR -->
+            <!-- ================================================= -->
 
-                        <span>
-                            Direction
-                        </span>
+            <header class="topbar">
 
-                        <strong id="direction">
-                            -
-                        </strong>
+                <div>
 
-                    </div>
+                    <h2 id="pageTitle">
+                        Dashboard
+                    </h2>
 
-
-                    <div class="metric">
-
-                        <span>
-                            Eyes
-                        </span>
-
-                        <strong id="eyes">
-                            -
-                        </strong>
-
-                    </div>
-
-
-                    <div class="metric">
-
-                        <span>
-                            AI FPS
-                        </span>
-
-                        <strong id="fps">
-                            -
-                        </strong>
-
-                    </div>
+                    <p id="pageSubtitle">
+                        Manage your online assessments
+                    </p>
 
                 </div>
 
 
-                <!-- CURRENT EVENT -->
-
-                <div
-                    id="event"
-                    class="event"
+                <button
+                    id="createAssessmentBtn"
+                    class="primary-btn"
                 >
-                    No active monitoring alert.
-                </div>
+
+                    <span>
+                        ＋
+                    </span>
+
+                    Create Assessment
+
+                </button>
+
+            </header>
 
 
-                <!-- EVENT HISTORY -->
+            <!-- ================================================= -->
+            <!-- DASHBOARD PAGE -->
+            <!-- ================================================= -->
 
-                <div class="event-history">
+            <section
+                id="dashboardPage"
+                class="page active-page"
+            >
 
-                    <h3>
-                        Monitoring Event History
-                    </h3>
 
-                    <div id="eventHistory">
+                <!-- ============================================= -->
+                <!-- STATISTICS -->
+                <!-- ============================================= -->
 
-                        <div class="no-events">
-                            No monitoring events yet.
+                <div class="stats-grid">
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            📊
+                        </div>
+
+                        <div>
+
+                            <span>
+                                Total Assessments
+                            </span>
+
+                            <strong id="totalAssessments">
+                                0
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            🟢
+                        </div>
+
+                        <div>
+
+                            <span>
+                                Ready
+                            </span>
+
+                            <strong id="readyAssessments">
+                                0
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            🔴
+                        </div>
+
+                        <div>
+
+                            <span>
+                                In Progress
+                            </span>
+
+                            <strong id="activeAssessments">
+                                0
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">
+                            ✅
+                        </div>
+
+                        <div>
+
+                            <span>
+                                Completed
+                            </span>
+
+                            <strong id="completedAssessments">
+                                0
+                            </strong>
+
                         </div>
 
                     </div>
 
                 </div>
 
-            </div>
 
-        </main>
+                <!-- ============================================= -->
+                <!-- RECENT ASSESSMENTS -->
+                <!-- ============================================= -->
+
+                <div class="section-header">
+
+                    <div>
+
+                        <h3>
+                            Recent Assessments
+                        </h3>
+
+                        <p>
+                            Manage your assessment sessions
+                        </p>
+
+                    </div>
+
+                    <button
+                        id="viewAllAssessmentsBtn"
+                        class="secondary-btn"
+                    >
+                        View All
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="recentAssessments"
+                    class="assessment-grid"
+                >
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            📋
+                        </div>
+
+                        <h3>
+                            No assessments yet
+                        </h3>
+
+                        <p>
+                            Create your first assessment to get started.
+                        </p>
+
+                        <button
+                            class="primary-btn"
+                            id="emptyCreateBtn"
+                        >
+                            Create Assessment
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- ASSESSMENTS PAGE -->
+            <!-- ================================================= -->
+
+            <section
+                id="assessmentsPage"
+                class="page"
+            >
+
+                <div class="section-header">
+
+                    <div>
+
+                        <h3>
+                            Assessments
+                        </h3>
+
+                        <p>
+                            Create and manage online assessments
+                        </p>
+
+                    </div>
+
+                    <button
+                        class="primary-btn"
+                        id="assessmentCreateBtn"
+                    >
+
+                        ＋ Create Assessment
+
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="allAssessments"
+                    class="assessment-grid"
+                >
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            📋
+                        </div>
+
+                        <h3>
+                            No assessments found
+                        </h3>
+
+                        <p>
+                            Create an assessment to begin monitoring candidates.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- MONITORING PAGE -->
+            <!-- ================================================= -->
+
+            <section
+                id="monitoringPage"
+                class="page"
+            >
+
+
+                <!-- ============================================= -->
+                <!-- MONITORING HEADER -->
+                <!-- ============================================= -->
+
+                <div class="monitoring-header">
+
+                    <div>
+
+                        <h3>
+                            Live Monitoring
+                        </h3>
+
+                        <p id="monitoringAssessmentName">
+                            No assessment selected
+                        </p>
+
+                    </div>
+
+
+                    <div class="monitoring-actions">
+
+                        <span
+                            id="monitoringStatus"
+                            class="status-badge"
+                        >
+                            NOT RUNNING
+                        </span>
+
+
+                        <button
+                            id="monitoringStopBtn"
+                            class="danger-btn"
+                            disabled
+                        >
+                            ⏹ Stop Monitoring
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ============================================= -->
+                <!-- ASSESSMENT DETAILS -->
+                <!-- ============================================= -->
+
+                <div
+                    id="monitoringAssessmentDetails"
+                    class="assessment-details"
+                >
+
+                    <div>
+
+                        <span>
+                            Candidate
+                        </span>
+
+                        <strong id="monitoringCandidate">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            Candidate ID
+                        </span>
+
+                        <strong id="monitoringCandidateId">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            Organization
+                        </span>
+
+                        <strong id="monitoringOrganization">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            Assessment Type
+                        </span>
+
+                        <strong id="monitoringType">
+                            -
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ============================================= -->
+                <!-- MONITORING CONTENT -->
+                <!-- ============================================= -->
+
+                <div class="monitoring-layout">
+
+
+                    <!-- ========================================= -->
+                    <!-- VIDEO -->
+                    <!-- ========================================= -->
+
+                    <div class="video-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <h3>
+                                    Camera Feed
+                                </h3>
+
+                                <span class="live-indicator">
+
+                                    <span>
+                                    </span>
+
+                                    LIVE
+
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="video-container">
+
+                            <div
+                                id="videoPlaceholder"
+                                class="video-placeholder"
+                            >
+
+                                <div class="video-placeholder-icon">
+                                    🎥
+                                </div>
+
+                                <h3>
+                                    Monitoring not started
+                                </h3>
+
+                                <p>
+                                    Start an assessment to begin the live camera feed.
+                                </p>
+
+                            </div>
+
+
+                            <img
+                                id="video"
+                                src=""
+                                alt="Live monitoring feed"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- ========================================= -->
+                    <!-- MONITORING STATUS -->
+                    <!-- ========================================= -->
+
+                    <div class="monitor-panel">
+
+                        <div class="panel-header">
+
+                            <h3>
+                                Monitoring Status
+                            </h3>
+
+                        </div>
+
+
+                        <!-- METRICS -->
+
+                        <div class="metrics-grid">
+
+
+                            <div class="metric-card">
+
+                                <span class="metric-label">
+                                    Faces
+                                </span>
+
+                                <strong
+                                    id="faces"
+                                    class="metric-value"
+                                >
+                                    -
+                                </strong>
+
+                            </div>
+
+
+                            <div class="metric-card">
+
+                                <span class="metric-label">
+                                    Direction
+                                </span>
+
+                                <strong
+                                    id="direction"
+                                    class="metric-value"
+                                >
+                                    -
+                                </strong>
+
+                            </div>
+
+
+                            <div class="metric-card">
+
+                                <span class="metric-label">
+                                    Eyes
+                                </span>
+
+                                <strong
+                                    id="eyes"
+                                    class="metric-value"
+                                >
+                                    -
+                                </strong>
+
+                            </div>
+
+
+                            <div class="metric-card">
+
+                                <span class="metric-label">
+                                    AI FPS
+                                </span>
+
+                                <strong
+                                    id="fps"
+                                    class="metric-value"
+                                >
+                                    -
+                                </strong>
+
+                            </div>
+
+
+                            <div class="metric-card">
+
+                                <span class="metric-label">
+                                    Persons
+                                </span>
+
+                                <strong
+                                    id="persons"
+                                    class="metric-value"
+                                >
+                                    -
+                                </strong>
+
+                            </div>
+
+
+                            <div class="metric-card">
+
+                                <span class="metric-label">
+                                    Objects
+                                </span>
+
+                                <strong
+                                    id="objects"
+                                    class="metric-value"
+                                >
+                                    -
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- CURRENT ALERT -->
+
+                        <div class="current-alert">
+
+                            <span class="alert-label">
+                                Current Monitoring Alert
+                            </span>
+
+                            <div
+                                id="event"
+                                class="event normal"
+                            >
+                                No active monitoring alert.
+                            </div>
+
+                        </div>
+
+
+                        <!-- EVENT HISTORY -->
+
+                        <div class="event-history">
+
+                            <div class="history-header">
+
+                                <h3>
+                                    Event History
+                                </h3>
+
+                                <span id="eventCount">
+                                    0 events
+                                </span>
+
+                            </div>
+
+
+                            <div
+                                id="eventHistory"
+                                class="event-list"
+                            >
+
+                                <div class="no-events">
+
+                                    No monitoring events yet.
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
 
     </div>
 
+
+    <!-- ===================================================== -->
+    <!-- CREATE ASSESSMENT MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="assessmentModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <h2>
+                        Create Assessment
+                    </h2>
+
+                    <p>
+                        Create a new online assessment session.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <form id="assessmentForm">
+
+
+                <!-- ASSESSMENT NAME -->
+
+                <div class="form-group">
+
+                    <label for="assessmentName">
+                        Assessment Name
+                    </label>
+
+                    <input
+                        type="text"
+                        id="assessmentName"
+                        name="assessment_name"
+                        placeholder="Example: Python Technical Assessment"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- ORGANIZATION -->
+
+                <div class="form-group">
+
+                    <label for="organization">
+                        Organization
+                    </label>
+
+                    <input
+                        type="text"
+                        id="organization"
+                        name="organization"
+                        placeholder="Example: ABC Technologies"
+                    >
+
+                </div>
+
+
+                <!-- ASSESSMENT TYPE -->
+
+                <div class="form-group">
+
+                    <label for="assessmentType">
+                        Assessment Type
+                    </label>
+
+                    <select
+                        id="assessmentType"
+                        name="assessment_type"
+                        required
+                    >
+
+                        <option value="">
+                            Select assessment type
+                        </option>
+
+                        <option value="College Exam">
+                            College Exam
+                        </option>
+
+                        <option value="Online Assessment">
+                            Online Assessment
+                        </option>
+
+                        <option value="Recruitment Test">
+                            Recruitment Test
+                        </option>
+
+                        <option value="Coding Test">
+                            Coding Test
+                        </option>
+
+                        <option value="Technical Test">
+                            Technical Test
+                        </option>
+
+                        <option value="Certification Exam">
+                            Certification Exam
+                        </option>
+
+                        <option value="Internal Assessment">
+                            Internal Assessment
+                        </option>
+
+                        <option value="Other">
+                            Other
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- CANDIDATE NAME -->
+
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label for="candidateName">
+                            Candidate Name
+                        </label>
+
+                        <input
+                            type="text"
+                            id="candidateName"
+                            name="candidate_name"
+                            placeholder="Candidate name"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="candidateId">
+                            Candidate ID
+                        </label>
+
+                        <input
+                            type="text"
+                            id="candidateId"
+                            name="candidate_id"
+                            placeholder="Candidate ID"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <!-- SCHEDULE -->
+
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label for="scheduledAt">
+                            Scheduled At
+                        </label>
+
+                        <input
+                            type="datetime-local"
+                            id="scheduledAt"
+                            name="scheduled_at"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="durationMinutes">
+                            Duration (minutes)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="durationMinutes"
+                            name="duration_minutes"
+                            value="60"
+                            min="1"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <!-- FORM ACTIONS -->
+
+                <div class="form-actions">
+
+                    <button
+                        type="button"
+                        id="cancelModalBtn"
+                        class="secondary-btn"
+                    >
+                        Cancel
+                    </button>
+
+
+                    <button
+                        type="submit"
+                        class="primary-btn"
+                    >
+                        Create Assessment
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- ASSESSMENT DETAILS MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="detailsModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content details-modal">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <h2>
+                        Assessment Details
+                    </h2>
+
+                    <p>
+                        Assessment information and monitoring controls.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeDetailsModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div
+                id="assessmentDetailsContent"
+                class="details-content"
+            >
+                Loading...
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    id="detailsCloseBtn"
+                    class="secondary-btn"
+                >
+                    Close
+                </button>
+
+
+                <button
+                    id="detailsStartBtn"
+                    class="primary-btn"
+                >
+                    ▶ Start Monitoring
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- EVIDENCE MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="evidenceModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-overlay"></div>
+
+
+        <div class="modal-content evidence-modal">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <h2>
+                        Monitoring Evidence
+                    </h2>
+
+                    <p>
+                        Captured image associated with this monitoring event.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closeEvidenceModalBtn"
+                    class="close-btn"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div class="evidence-container">
+
+                <img
+                    id="evidenceImage"
+                    src=""
+                    alt="Monitoring evidence"
+                >
+
+            </div>
+
+
+            <div
+                id="evidenceDetails"
+                class="evidence-details"
+            >
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- TOAST -->
+    <!-- ===================================================== -->
+
+    <div
+        id="toast"
+        class="toast hidden"
+    >
+
+        <span id="toastMessage">
+            Notification
+        </span>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- JAVASCRIPT -->
+    <!-- ===================================================== -->
 
     <script
         src="/static/app.js"
