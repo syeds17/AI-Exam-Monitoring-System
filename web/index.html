@@ -1117,6 +1117,14 @@
                 </button>
 
                 <button
+                    id="assessmentReportBtn"
+                    class="secondary-button"
+                    type="button"
+>
+                    Assessment Report
+                </button>
+
+                <button
                     class="secondary-button"
                     data-close-modal="detailsModal"
                 >
@@ -1344,7 +1352,244 @@
 
     </div>
 
+    <!-- =========================================================
+     ASSESSMENT REPORT MODAL
+     ========================================================= -->
 
+    <div id="assessmentReportModal" class="modal hidden">
+
+        <div class="modal-overlay"></div>
+
+        <div class="modal-content large">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        ASSESSMENT REPORT
+                    </p>
+
+                    <h3 id="reportTitle">
+                        Assessment Report
+                    </h3>
+
+                    <p id="reportSubtitle">
+                        Assessment monitoring summary.
+                    </p>
+
+                </div>
+
+                <button
+                    class="icon-btn"
+                    type="button"
+                    data-close-modal="assessmentReportModal"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div class="modal-body">
+
+            <!-- ASSESSMENT OVERVIEW -->
+
+                <section class="report-section">
+
+                    <div class="report-section-heading">
+
+                        <div>
+
+                            <h4>
+                                Assessment Overview
+                            </h4>
+
+                            <p>
+                                Assessment configuration and current status.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="reportOverview"
+                        class="report-overview-grid"
+                    >
+                        Loading...
+                    </div>
+
+                </section>
+
+
+            <!-- CANDIDATE SUMMARY -->
+
+                <section class="report-section">
+
+                    <div class="report-section-heading">
+   
+                        <div>
+
+                            <h4>
+                                Candidate Summary
+                            </h4>
+
+                            <p>
+                                Candidate participation across the assessment.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="reportCandidateSummary"
+                        class="report-metrics-grid"
+                    >
+                        Loading...
+                    </div>
+
+                </section>
+
+
+            <!-- REVIEW SUMMARY -->
+ 
+                <section class="report-section">
+
+                    <div class="report-section-heading">
+
+                        <div>
+
+                            <h4>
+                                Review Summary
+                            </h4>
+
+                            <p>
+                                Human review decisions recorded for candidates.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="reportReviewSummary"
+                        class="report-metrics-grid"
+                    >
+                        Loading...
+                    </div>
+
+                </section>
+
+
+            <!-- MONITORING SUMMARY -->
+
+                <section class="report-section">
+
+                    <div class="report-section-heading">
+
+                        <div>
+
+                            <h4>
+                                Monitoring Summary
+                            </h4>
+
+                            <p>
+                                AI-observed monitoring events across candidates.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="reportMonitoringSummary"
+                        class="report-metrics-grid"
+                    >
+                        Loading...
+                    </div>
+
+                </section>
+
+
+            <!-- EVENT BREAKDOWN -->
+
+                <section class="report-section">
+   
+                    <div class="report-section-heading">
+
+                        <div>
+
+                            <h4>
+                                Event Breakdown
+                            </h4>
+
+                            <p>
+                                Distribution of observable monitoring events.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="reportEventBreakdown"
+                        class="report-event-breakdown"
+                    >
+                        Loading...
+                    </div>
+
+                </section>
+
+
+            <!-- CANDIDATE RESULTS -->
+
+                <section class="report-section">
+
+                    <div class="report-section-heading">
+
+                        <div>
+
+                            <h4>
+                                Candidate Results
+                            </h4>
+
+                            <p>
+                                Candidate-level monitoring and review status.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="reportCandidateResults"
+                        class="report-candidate-table"
+                    >
+                        Loading...
+                    </div>
+
+                </section>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button
+                    class="secondary-button"
+                    type="button"
+                    data-close-modal="assessmentReportModal"
+                >
+                    Close
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
     <!-- =====================================================
          EVIDENCE MODAL
          ===================================================== -->

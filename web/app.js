@@ -110,35 +110,36 @@ function formatDateTime(value) {
 }
 
 
-function formatDuration(minutes) {
+function formatDuration(seconds) {
     if (
-        minutes === null ||
-        minutes === undefined ||
-        minutes === ""
+        seconds === null ||
+        seconds === undefined ||
+        seconds === ""
     ) {
         return "—";
     }
 
-    const value = Number(minutes);
+    const totalSeconds = Number(seconds);
 
-    if (!Number.isFinite(value)) {
-        return String(minutes);
+    if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
+        return "—";
     }
 
-    if (value < 60) {
-        return `${value} min`;
+    const roundedSeconds =
+        Math.round(totalSeconds);
+
+    const minutes =
+        Math.floor(roundedSeconds / 60);
+
+    const remainingSeconds =
+        roundedSeconds % 60;
+
+    if (minutes === 0) {
+        return `${remainingSeconds}s`;
     }
 
-    const hours = Math.floor(value / 60);
-    const remaining = value % 60;
-
-    if (!remaining) {
-        return `${hours} hr`;
-    }
-
-    return `${hours} hr ${remaining} min`;
+    return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
-
 
 function getAssessmentStatus(assessment) {
     return String(
@@ -565,9 +566,9 @@ function createAssessmentCard(
 
 
     const duration =
-        formatDuration(
-            assessment.duration_minutes
-        );
+        assessment.duration_minutes
+            ? `${assessment.duration_minutes} min`
+            : "—";
 
 
     const scheduled =
@@ -1104,6 +1105,991 @@ async function openAssessmentDetails(
     }
 }
 
+/* =========================================================
+   OPEN ASSESSMENT REPORT
+   ========================================================= */
+async function openAssessmentReport() {
+
+    if (!selectedAssessment) {
+
+        showToast(
+            "No assessment selected.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    /*
+     * Open report modal
+     */
+
+    const detailsModal =
+        $("detailsModal");
+
+    if (detailsModal) {
+
+        detailsModal.classList.add(
+            "hidden"
+        );
+
+        detailsModal.classList.remove(
+            "open"
+        );
+    }
+
+
+    const reportModal =
+        $("assessmentReportModal");
+
+    if (!reportModal) {
+
+        showToast(
+            "Assessment report modal not found.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    reportModal.classList.remove(
+        "hidden"
+    );
+
+    reportModal.classList.add(
+        "open"
+    );
+
+
+    /*
+     * Basic report heading
+     */
+
+    const title =
+        $("reportTitle");
+
+    const subtitle =
+        $("reportSubtitle");
+
+
+    if (title) {
+
+        title.textContent =
+            selectedAssessment.assessment_name ||
+            "Assessment Report";
+    }
+
+
+    if (subtitle) {
+
+        subtitle.textContent =
+            `${selectedAssessment.organization || "Assessment"} • Monitoring Report`;
+    }
+
+
+    /*
+     * Reset report sections
+     */
+
+    const reportContainers = [
+
+        "reportOverview",
+        "reportCandidateSummary",
+        "reportReviewSummary",
+        "reportMonitoringSummary",
+        "reportEventBreakdown",
+        "reportCandidateResults"
+
+    ];
+
+
+    reportContainers.forEach(
+        id => {
+
+            const element =
+                $(id);
+
+            if (element) {
+
+                element.innerHTML =
+                    "Loading...";
+            }
+        }
+    );
+
+
+    try {
+
+        const assessmentId =
+            selectedAssessment.assessment_id;
+
+
+        /*
+         * Get assessment details
+         * and candidate list
+         */
+
+        const [
+            assessmentResult,
+            candidateResult
+        ] = await Promise.all([
+
+            apiRequest(
+                `/api/assessments/${encodeURIComponent(
+                    assessmentId
+                )}`
+            ),
+
+            apiRequest(
+                `/api/assessments/${encodeURIComponent(
+                    assessmentId
+                )}/candidates`
+            )
+
+        ]);
+
+
+        const assessment =
+            assessmentResult.assessment ||
+            assessmentResult;
+
+
+        const candidates =
+            candidateResult.candidates ||
+            candidateResult.data ||
+            [];
+
+
+        /*
+         * Get review/event data
+         * for every candidate
+         */
+
+        const candidateReports =
+            await Promise.all(
+
+                candidates.map(
+                    async candidate => {
+
+                        const candidateRecordId =
+                            candidate.candidate_record_id;
+
+
+                        if (!candidateRecordId) {
+
+                            return {
+
+                                candidate,
+                                session: null,
+                                events: []
+
+                            };
+                        }
+
+
+                        try {
+
+                            const reviewResult =
+                                await apiRequest(
+                                    `/api/assessments/${encodeURIComponent(
+                                        assessmentId
+                                    )}/candidates/${encodeURIComponent(
+                                        candidateRecordId
+                                    )}/review`
+                                );
+
+
+                            return {
+
+                                candidate:
+                                    reviewResult.candidate ||
+                                    candidate,
+
+                                session:
+                                    reviewResult.session ||
+                                    null,
+
+                                events:
+                                    Array.isArray(
+                                        reviewResult.events
+                                    )
+                                        ? reviewResult.events
+                                        : []
+
+                            };
+
+                        } catch (error) {
+
+                            console.warn(
+                                "Candidate report failed:",
+                                candidateRecordId,
+                                error
+                            );
+
+
+                            return {
+
+                                candidate,
+                                session: null,
+                                events: []
+
+                            };
+                        }
+                    }
+                )
+            );
+
+
+        /*
+         * Render complete report
+         */
+
+        renderAssessmentReport(
+            assessment,
+            candidateReports
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Assessment report failed:",
+            error
+        );
+
+
+        showToast(
+            error.message ||
+            "Unable to generate assessment report.",
+            "error"
+        );
+
+
+        const reportOverview =
+            $("reportOverview");
+
+
+        if (reportOverview) {
+
+            reportOverview.innerHTML = `
+                <div class="report-error">
+                    Unable to load assessment report.
+                </div>
+            `;
+        }
+    }
+}
+
+function renderAssessmentReport(
+    assessment,
+    candidateReports
+) {
+
+    /*
+     * =====================================================
+     * CANDIDATE COUNTS
+     * =====================================================
+     */
+
+    const totalCandidates =
+        candidateReports.length;
+
+
+    let completedCandidates = 0;
+    let monitoringCandidates = 0;
+    let authorizedCandidates = 0;
+    let notStartedCandidates = 0;
+
+
+    /*
+     * =====================================================
+     * REVIEW COUNTS
+     * =====================================================
+     */
+
+    let notReviewed = 0;
+    let cheating = 0;
+    let notCheating = 0;
+    let needsReview = 0;
+
+
+    /*
+     * =====================================================
+     * MONITORING COUNTS
+     * =====================================================
+     */
+
+    let totalEvents = 0;
+    let evidenceCaptured = 0;
+
+
+    const eventCounts = {};
+
+
+    /*
+     * =====================================================
+     * PROCESS CANDIDATES
+     * =====================================================
+     */
+
+    candidateReports.forEach(
+        report => {
+
+            const candidate =
+                report.candidate || {};
+
+            const events =
+                Array.isArray(report.events)
+                    ? report.events
+                    : [];
+
+
+            const status =
+                (
+                    candidate.assignment_status ||
+                    candidate.status ||
+                    ""
+                ).toUpperCase();
+
+
+            /*
+             * Candidate status
+             */
+
+            if (status === "COMPLETED") {
+
+                completedCandidates++;
+
+            }
+
+            else if (
+                status === "MONITORING"
+            ) {
+
+                monitoringCandidates++;
+
+            }
+
+            else if (
+                status === "AUTHORIZED"
+            ) {
+
+                authorizedCandidates++;
+
+            }
+
+            else {
+
+                notStartedCandidates++;
+            }
+
+
+            /*
+             * Reviewer decision
+             */
+
+            const decision =
+                (
+                    candidate.reviewer_decision ||
+                    ""
+                ).toUpperCase();
+
+
+            if (decision === "CHEATING") {
+
+                cheating++;
+
+            }
+
+            else if (
+                decision === "NOT_CHEATING"
+            ) {
+
+                notCheating++;
+
+            }
+
+            else if (
+                decision === "NEEDS_REVIEW"
+            ) {
+
+                needsReview++;
+
+            }
+
+            else {
+
+                notReviewed++;
+            }
+
+
+            /*
+             * Events
+             */
+
+            totalEvents +=
+                events.length;
+
+
+            events.forEach(
+                event => {
+
+                    const eventType =
+                        event.event_type ||
+                        "UNKNOWN";
+
+
+                    eventCounts[eventType] =
+                        (
+                            eventCounts[eventType] ||
+                            0
+                        ) + 1;
+
+
+                    if (
+                        event.evidence_path
+                    ) {
+
+                        evidenceCaptured++;
+                    }
+                }
+            );
+        }
+    );
+
+
+    /*
+     * =====================================================
+     * ASSESSMENT OVERVIEW
+     * =====================================================
+     */
+
+    const overview =
+        $("reportOverview");
+
+
+    if (overview) {
+
+        overview.innerHTML = `
+
+            <div class="report-info-card">
+
+                <span>Assessment</span>
+
+                <strong>
+                    ${escapeHtml(
+                        assessment.assessment_name ||
+                        "—"
+                    )}
+                </strong>
+
+            </div>
+
+
+            <div class="report-info-card">
+
+                <span>Organization</span>
+
+                <strong>
+                    ${escapeHtml(
+                        assessment.organization ||
+                        "—"
+                    )}
+                </strong>
+
+            </div>
+
+
+            <div class="report-info-card">
+
+                <span>Type</span>
+
+                <strong>
+                    ${escapeHtml(
+                        assessment.assessment_type ||
+                        "—"
+                    )}
+                </strong>
+
+            </div>
+
+
+            <div class="report-info-card">
+
+                <span>Duration</span>
+
+                <strong>
+                    ${
+                        assessment.duration_minutes
+                            ? `${assessment.duration_minutes} min`
+                            : "—"
+                    }
+                </strong>
+
+            </div>
+
+
+            <div class="report-info-card">
+
+                <span>Status</span>
+
+                <strong>
+                    ${escapeHtml(
+                        formatStatus(
+                            assessment.status ||
+                            "—"
+                        )
+                    )}
+                </strong>
+
+            </div>
+
+
+            <div class="report-info-card">
+
+                <span>Scheduled</span>
+
+                <strong>
+                    ${escapeHtml(
+                        formatDateTime(
+                            assessment.scheduled_at
+                        )
+                    )}
+                </strong>
+
+            </div>
+
+        `;
+    }
+
+
+    /*
+     * =====================================================
+     * CANDIDATE SUMMARY
+     * =====================================================
+     */
+
+    const candidateSummary =
+        $("reportCandidateSummary");
+
+
+    if (candidateSummary) {
+
+        candidateSummary.innerHTML = `
+
+            ${createReportMetric(
+                "Total Candidates",
+                totalCandidates
+            )}
+
+            ${createReportMetric(
+                "Completed",
+                completedCandidates
+            )}
+
+            ${createReportMetric(
+                "Monitoring",
+                monitoringCandidates
+            )}
+
+            ${createReportMetric(
+                "Authorized",
+                authorizedCandidates
+            )}
+
+            ${createReportMetric(
+                "Not Started",
+                notStartedCandidates
+            )}
+
+        `;
+    }
+
+
+    /*
+     * =====================================================
+     * REVIEW SUMMARY
+     * =====================================================
+     */
+
+    const reviewSummary =
+        $("reportReviewSummary");
+
+
+    if (reviewSummary) {
+
+        reviewSummary.innerHTML = `
+
+            ${createReportMetric(
+                "Not Reviewed",
+                notReviewed
+            )}
+
+            ${createReportMetric(
+                "Cheating",
+                cheating
+            )}
+
+            ${createReportMetric(
+                "Not Cheating",
+                notCheating
+            )}
+
+            ${createReportMetric(
+                "Needs Review",
+                needsReview
+            )}
+
+        `;
+    }
+
+
+    /*
+     * =====================================================
+     * MONITORING SUMMARY
+     * =====================================================
+     */
+
+    const monitoringSummary =
+        $("reportMonitoringSummary");
+
+
+    if (monitoringSummary) {
+
+        monitoringSummary.innerHTML = `
+
+            ${createReportMetric(
+                "Total Events",
+                totalEvents
+            )}
+
+            ${createReportMetric(
+                "Evidence Captured",
+                evidenceCaptured
+            )}
+
+        `;
+    }
+
+
+    /*
+     * =====================================================
+     * EVENT BREAKDOWN
+     * =====================================================
+     */
+
+    renderReportEventBreakdown(
+        eventCounts
+    );
+
+
+    /*
+     * =====================================================
+     * CANDIDATE RESULTS
+     * =====================================================
+     */
+
+    renderReportCandidateResults(
+        candidateReports
+    );
+}
+
+function createReportMetric(
+    label,
+    value
+) {
+
+    return `
+
+        <div class="report-metric-card">
+
+            <span>
+                ${escapeHtml(label)}
+            </span>
+
+            <strong>
+                ${formatNumber(value)}
+            </strong>
+
+        </div>
+
+    `;
+}
+
+function renderReportEventBreakdown(
+    eventCounts
+) {
+
+    const container =
+        $("reportEventBreakdown");
+
+
+    if (!container) {
+        return;
+    }
+
+
+    const entries =
+        Object.entries(eventCounts);
+
+
+    if (!entries.length) {
+
+        container.innerHTML = `
+
+            <div class="report-empty">
+
+                No monitoring events recorded.
+
+            </div>
+
+        `;
+
+        return;
+    }
+
+
+    const maxCount =
+        Math.max(
+            ...entries.map(
+                ([, count]) => count
+            )
+        );
+
+
+    container.innerHTML = entries
+
+        .sort(
+            (a, b) =>
+                b[1] - a[1]
+        )
+
+        .map(
+            ([eventType, count]) => {
+
+                const percentage =
+                    maxCount > 0
+                        ? (
+                            count /
+                            maxCount
+                        ) * 100
+                        : 0;
+
+
+                return `
+
+                    <div class="report-event-row">
+
+                        <div class="report-event-label">
+
+                            <span>
+                                ${escapeHtml(
+                                    formatEventType(
+                                        eventType
+                                    )
+                                )}
+                            </span>
+
+                            <strong>
+                                ${count}
+                            </strong>
+
+                        </div>
+
+
+                        <div class="report-event-bar">
+
+                            <div
+                                class="report-event-bar-fill"
+                                style="width:${percentage}%"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+                `;
+            }
+        )
+
+        .join("");
+}
+
+function renderReportCandidateResults(
+    candidateReports
+) {
+
+    const container =
+        $("reportCandidateResults");
+
+
+    if (!container) {
+        return;
+    }
+
+
+    if (!candidateReports.length) {
+
+        container.innerHTML = `
+
+            <div class="report-empty">
+
+                No candidates have been registered.
+
+            </div>
+
+        `;
+
+        return;
+    }
+
+
+    container.innerHTML = `
+
+        <div class="report-table-wrapper">
+
+            <table class="report-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Candidate</th>
+
+                        <th>Status</th>
+
+                        <th>Events</th>
+
+                        <th>Evidence</th>
+
+                        <th>Decision</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    ${candidateReports.map(
+                        report => {
+
+                            const candidate =
+                                report.candidate ||
+                                {};
+
+                            const events =
+                                report.events ||
+                                [];
+
+
+                            const name =
+                                candidate.candidate_name ||
+                                "Unknown Candidate";
+
+
+                            const status =
+                                candidate.assignment_status ||
+                                candidate.status ||
+                                "—";
+
+
+                            const decision =
+                                candidate.reviewer_decision ||
+                                "NOT_REVIEWED";
+
+
+                            const evidenceCount =
+                                events.filter(
+                                    event =>
+                                        Boolean(
+                                            event.evidence_path
+                                        )
+                                ).length;
+
+
+                            return `
+
+                                <tr>
+
+                                    <td>
+
+                                        <strong>
+                                            ${escapeHtml(
+                                                name
+                                            )}
+                                        </strong>
+
+                                        ${
+                                            candidate.candidate_id
+                                                ? `
+                                                    <span class="report-candidate-id">
+                                                        ${escapeHtml(
+                                                            candidate.candidate_id
+                                                        )}
+                                                    </span>
+                                                  `
+                                                : ""
+                                        }
+
+                                    </td>
+
+
+                                    <td>
+
+                                        <span class="status-badge">
+
+                                            ${escapeHtml(
+                                                formatStatus(
+                                                    status
+                                                )
+                                            )}
+
+                                        </span>
+
+                                    </td>
+
+
+                                    <td>
+                                        ${events.length}
+                                    </td>
+
+
+                                    <td>
+                                        ${evidenceCount}
+                                    </td>
+
+
+                                    <td>
+
+                                        <span class="status-badge">
+
+                                            ${escapeHtml(
+                                                formatStatus(
+                                                    decision
+                                                )
+                                            )}
+
+                                        </span>
+
+                                    </td>
+
+                                </tr>
+
+                            `;
+                        }
+                    ).join("")}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    `;
+}
 
 /* =========================================================
    ASSESSMENT DETAILS UI
@@ -2254,13 +3240,11 @@ function renderCandidateReview(
 ) {
 
     const candidate =
-        result.candidate ||
-        {};
+        result.candidate || {};
 
 
     const session =
-        result.session ||
-        {};
+        result.session || {};
 
 
     const events =
@@ -2268,6 +3252,10 @@ function renderCandidateReview(
             ? result.events
             : [];
 
+
+    /* =====================================================
+       BASIC CANDIDATE INFORMATION
+       ===================================================== */
 
     if ($("reviewCandidateName")) {
 
@@ -2286,50 +3274,269 @@ function renderCandidateReview(
     }
 
 
+    /* =====================================================
+       EVENT COUNTS
+       ===================================================== */
+
+    const totalEvents =
+        events.length;
+
+
+    const evidenceCount =
+        events.filter(
+            event =>
+                Boolean(
+                    event.evidence_path
+                )
+        ).length;
+
+
+    const lookingAwayCount =
+        events.filter(
+            event =>
+                event.event_type ===
+                "LOOKING_AWAY"
+        ).length;
+
+
+    const additionalPersonCount =
+        events.filter(
+            event =>
+                event.event_type ===
+                    "ADDITIONAL_PERSON" ||
+                event.event_type ===
+                    "MULTIPLE_FACES"
+        ).length;
+
+
+    const faceMissingCount =
+        events.filter(
+            event =>
+                event.event_type ===
+                "FACE_NOT_DETECTED"
+        ).length;
+
+
+    const eyesClosedCount =
+        events.filter(
+            event =>
+                event.event_type ===
+                "EYES_CLOSED"
+        ).length;
+
+
+    /* =====================================================
+       SESSION DURATION
+       ===================================================== */
+
+    let sessionDuration =
+        "—";
+
+
+    const startedAt =
+        candidate.started_at;
+
+
+    const completedAt =
+        candidate.completed_at;
+
+
+    if (
+        startedAt &&
+        completedAt
+    ) {
+
+        const start =
+            new Date(
+                startedAt
+            ).getTime();
+
+
+        const end =
+            new Date(
+                completedAt
+            ).getTime();
+
+
+        if (
+            Number.isFinite(start) &&
+            Number.isFinite(end) &&
+            end >= start
+        ) {
+
+            const totalSeconds =
+                Math.floor(
+                    (end - start) /
+                    1000
+                );
+
+
+            const minutes =
+                Math.floor(
+                    totalSeconds /
+                    60
+                );
+
+
+            const seconds =
+                totalSeconds %
+                60;
+
+
+            sessionDuration =
+                `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+        }
+    }
+
+
+    /* =====================================================
+       REVIEW SUMMARY
+       ===================================================== */
+
     if ($("reviewSummary")) {
 
         $("reviewSummary").innerHTML = `
 
-            <div class="review-summary-card">
-                <span>Candidate ID</span>
+            <div class="review-metric-card">
 
-                <strong>
+                <span class="review-metric-label">
+                    Total Events
+                </span>
+
+                <strong class="review-metric-value">
+                    ${totalEvents}
+                </strong>
+
+            </div>
+
+
+            <div class="review-metric-card">
+
+                <span class="review-metric-label">
+                    Evidence Captured
+                </span>
+
+                <strong class="review-metric-value">
+                    ${evidenceCount}
+                </strong>
+
+            </div>
+
+
+            <div class="review-metric-card">
+
+                <span class="review-metric-label">
+                    Session Time
+                </span>
+
+                <strong class="review-metric-value">
+                    ${escapeHtml(
+                        sessionDuration
+                    )}
+                </strong>
+
+            </div>
+
+
+            <div class="review-metric-card">
+
+                <span class="review-metric-label">
+                    Looking Away
+                </span>
+
+                <strong class="review-metric-value">
+                    ${lookingAwayCount}
+                </strong>
+
+            </div>
+
+
+            <div class="review-metric-card">
+
+                <span class="review-metric-label">
+                    Additional Person
+                </span>
+
+                <strong class="review-metric-value">
+                    ${additionalPersonCount}
+                </strong>
+
+            </div>
+
+
+            <div class="review-metric-card">
+
+                <span class="review-metric-label">
+                    Face Missing
+                </span>
+
+                <strong class="review-metric-value">
+                    ${faceMissingCount}
+                </strong>
+
+            </div>
+
+
+            <div class="review-metric-card">
+
+                <span class="review-metric-label">
+                    Eyes Closed
+                </span>
+
+                <strong class="review-metric-value">
+                    ${eyesClosedCount}
+                </strong>
+
+            </div>
+
+
+            <div class="review-metric-card review-candidate-card">
+
+                <span class="review-metric-label">
+                    Candidate ID
+                </span>
+
+                <strong class="review-metric-value review-metric-small">
                     ${escapeHtml(
                         candidate.candidate_id ||
                         "—"
                     )}
                 </strong>
+
             </div>
 
 
-            <div class="review-summary-card">
-                <span>Session</span>
+            <div class="review-metric-card review-session-card">
 
-                <strong>
+                <span class="review-metric-label">
+                    Session
+                </span>
+
+                <strong class="review-metric-value review-metric-small">
                     ${escapeHtml(
                         session.session_id ||
                         "—"
                     )}
                 </strong>
-            </div>
 
-
-            <div class="review-summary-card">
-                <span>Events</span>
-
-                <strong>
-                    ${events.length}
-                </strong>
             </div>
 
         `;
     }
 
 
+    /* =====================================================
+       EVENT TIMELINE
+       ===================================================== */
+
     renderReviewEvents(
         events
     );
 
+
+    /* =====================================================
+       EXISTING REVIEW DECISION
+       ===================================================== */
 
     if ($("reviewDecision")) {
 
@@ -2368,20 +3575,22 @@ function renderReviewEvents(
     if (!events.length) {
 
         container.innerHTML = `
-            <div class="empty-state">
+            <div class="review-empty-events">
 
-                <div class="empty-icon">
+                <div class="review-empty-icon">
                     ✓
                 </div>
 
-                <h3>
-                    No monitoring events
-                </h3>
+                <div>
+                    <strong>
+                        No monitoring events
+                    </strong>
 
-                <p>
-                    No persisted monitoring events were recorded
-                    for this session.
-                </p>
+                    <span>
+                        No persisted monitoring events were recorded
+                        for this session.
+                    </span>
+                </div>
 
             </div>
         `;
@@ -2390,83 +3599,208 @@ function renderReviewEvents(
     }
 
 
-    container.innerHTML =
-        events.map(
-            event => {
+    container.innerHTML = `
+        <div class="review-timeline">
 
-                const evidence =
-                    event.evidence_path ||
-                    "";
+            ${events.map(
+                (event, index) => {
+
+                    const eventType =
+                        event.event_type ||
+                        "UNKNOWN";
 
 
-                return `
+                    const direction =
+                        event.direction ||
+                        "";
 
-                    <div class="event-row">
 
-                        <div>
+                    const duration =
+                        event.duration;
 
-                            <strong>
-                                ${escapeHtml(
-                                    formatEventType(
-                                        event.event_type
-                                    )
-                                )}
-                            </strong>
 
-                            <span>
+                    const timestamp =
+                        event.timestamp ||
+                        "";
+
+
+                    const evidence =
+                        event.evidence_path ||
+                        "";
+
+
+                    let eventClass =
+                        eventType
+                            .toLowerCase()
+                            .replace(
+                                /[^a-z0-9]+/g,
+                                "-"
+                            );
+
+
+                    let icon = "⚠";
+
+
+                    if (
+                        eventType ===
+                        "LOOKING_AWAY"
+                    ) {
+                        icon = "👁";
+                    }
+
+                    else if (
+                        eventType ===
+                        "FACE_NOT_DETECTED"
+                    ) {
+                        icon = "👤";
+                    }
+
+                    else if (
+                        eventType ===
+                        "MULTIPLE_FACES" ||
+                        eventType ===
+                        "ADDITIONAL_PERSON"
+                    ) {
+                        icon = "👥";
+                    }
+
+                    else if (
+                        eventType ===
+                        "EYES_CLOSED"
+                    ) {
+                        icon = "😴";
+                    }
+
+
+                    return `
+                        <div
+                            class="review-timeline-item
+                                   event-${eventClass}"
+                        >
+
+                            <div class="review-timeline-marker">
+
+                                <span>
+                                    ${icon}
+                                </span>
+
+                            </div>
+
+
+                            <div class="review-timeline-content">
+
+                                <div class="review-event-header">
+
+                                    <div>
+
+                                        <strong>
+                                            ${escapeHtml(
+                                                formatEventType(
+                                                    eventType
+                                                )
+                                            )}
+                                        </strong>
+
+                                        ${
+                                            direction
+                                                ? `
+                                                    <span class="review-event-direction">
+                                                        ${escapeHtml(
+                                                            direction
+                                                        )}
+                                                    </span>
+                                                `
+                                                : ""
+                                        }
+
+                                    </div>
+
+
+                                    <time>
+                                        ${escapeHtml(
+                                            formatDateTime(
+                                                timestamp
+                                            )
+                                        )}
+                                    </time>
+
+                                </div>
+
+
+                                <div class="review-event-details">
+
+                                    ${
+                                        duration !== null &&
+                                        duration !== undefined
+                                            ? `
+                                                <span>
+                                                    Duration:
+                                                    <strong>
+                                                        ${escapeHtml(
+                                                            formatDuration(
+                                                                duration
+                                                            )
+                                                        )}
+                                                    </strong>
+                                                </span>
+                                            `
+                                            : ""
+                                    }
+
+
+                                    ${
+                                        evidence
+                                            ? `
+                                                <span class="review-evidence-status">
+                                                    Evidence captured
+                                                </span>
+                                            `
+                                            : `
+                                                <span class="review-no-evidence">
+                                                    No evidence
+                                                </span>
+                                            `
+                                    }
+
+                                </div>
+
+
                                 ${
-                                    event.direction
-                                        ? escapeHtml(
-                                            event.direction
-                                        )
-                                        : "Monitoring event"
+                                    evidence
+                                        ? `
+                                            <div class="review-event-actions">
+
+                                                <button
+                                                    class="secondary-button"
+                                                    onclick="openEvidence(
+                                                        '${escapeJs(
+                                                            event.session_id
+                                                        )}',
+                                                        '${escapeJs(
+                                                            evidence
+                                                        )}',
+                                                        '${escapeJs(
+                                                            eventType
+                                                        )}'
+                                                    )"
+                                                >
+                                                    View Evidence
+                                                </button>
+
+                                            </div>
+                                        `
+                                        : ""
                                 }
-                            </span>
+
+                            </div>
 
                         </div>
+                    `;
+                }
+            ).join("")}
 
-
-                        <div>
-
-                            <time>
-                                ${escapeHtml(
-                                    formatDateTime(
-                                        event.timestamp
-                                    )
-                                )}
-                            </time>
-
-
-                            ${
-                                evidence
-                                    ? `
-                                        <button
-                                            class="secondary-button"
-                                            style="margin-top:6px;"
-                                            onclick="openEvidence(
-                                                '${escapeJs(
-                                                    event.session_id
-                                                )}',
-                                                '${escapeJs(
-                                                    evidence
-                                                )}',
-                                                '${escapeJs(
-                                                    event.event_type
-                                                )}'
-                                            )"
-                                        >
-                                            Evidence
-                                        </button>
-                                    `
-                                    : ""
-                            }
-
-                        </div>
-
-                    </div>
-                `;
-            }
-        ).join("");
+        </div>
+    `;
 }
 
 
@@ -2876,9 +4210,9 @@ function renderCandidateAssessment(
     if ($("candidateDuration")) {
 
         $("candidateDuration").textContent =
-            formatDuration(
-                assessment.duration_minutes
-            );
+            assessment.duration_minutes
+                ? `${assessment.duration_minutes} min`
+                : "—";
     }
 
 
@@ -4213,6 +5547,18 @@ function initializeAuthorEvents() {
         deactivateButton.addEventListener(
             "click",
             deactivateAssessment
+        );
+    }
+
+    const assessmentReportButton =
+        $("assessmentReportBtn");
+
+    
+    if (assessmentReportButton) {
+
+        assessmentReportButton.addEventListener(
+            "click",
+            openAssessmentReport
         );
     }
 
