@@ -33,6 +33,7 @@ class ObjectDetectionWorker:
         self.detection_count = 0
 
         self.last_detection_time = 0.0
+        self.result_sequence = 0
 
     def start(self):
         """
@@ -53,6 +54,7 @@ class ObjectDetectionWorker:
         self.detection_fps = 0.0
         self.detection_count = 0
         self.last_detection_time = 0.0
+        self.result_sequence = 0
 
         self.thread = threading.Thread(
             target=self._worker_loop,
@@ -112,6 +114,7 @@ class ObjectDetectionWorker:
                     self.detection_fps = current_fps
                     self.detection_count += 1
                     self.last_detection_time = time.time()
+                    self.result_sequence += 1
 
             except Exception as exc:
                 print(
@@ -133,10 +136,11 @@ class ObjectDetectionWorker:
         with self.lock:
             result = {
                 "object_count": self.latest_result.get(
-                    "object_count",
-                    0,
+                    "object_count", 0
                 ),
                 "objects": [],
+                "last_detection_time": self.last_detection_time,
+                "result_sequence": self.result_sequence,
             }
 
             for obj in self.latest_result.get(

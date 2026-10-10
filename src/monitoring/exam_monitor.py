@@ -90,6 +90,14 @@ class ExamMonitor:
         self.detected_objects = []
         self.object_count = 0
         self.object_detection_fps = 0.0
+        # Object event confirmation state
+        self._object_tracking = {}
+        self._last_object_result_sequence = 0
+
+        self.OBJECT_MIN_CONFIDENCE = 0.65
+        self.OBJECT_MIN_HITS = 3
+        self.OBJECT_CONFIRM_SECONDS = 0.8
+        self.OBJECT_ABSENCE_RESET_SECONDS = 1.2
 
         self.additional_person_start = None
         self.additional_person_active = False
@@ -369,6 +377,12 @@ class ExamMonitor:
         self.object_detection_fps = (
             self.object_detection_worker.get_fps()
         )
+        
+# Keep person detection data for monitoring logic.
+        person_count = detection_result.get("person_count", 0)
+        yolo_fps = self.detection_worker.get_fps()
+
+        self._check_object_events(object_detection_result)
 
         # -----------------------------------------------
         # ADDITIONAL PERSON CONFIRMATION
@@ -569,164 +583,6 @@ class ExamMonitor:
                         self.relative_yaw
                     )
                 )
-
-            # ==========================================
-            # DRAW FACE LANDMARKS
-            # ==========================================
-
-            for landmark in face:
-
-                x = int(
-                    landmark.x * w
-                )
-
-                y = int(
-                    landmark.y * h
-                )
-
-                if (
-                    0 <= x < w
-                    and
-                    0 <= y < h
-                ):
-
-                    cv2.circle(
-                        frame,
-                        (x, y),
-                        1,
-                        (0, 255, 0),
-                        -1
-                    )
-
-        # ==================================================
-        # DRAW YOLO PERSON DETECTIONS
-        # ==================================================
-
-        for person in detection_result.get(
-            "persons",
-            []
-        ):
-
-            x1, y1, x2, y2 = (
-                person["bbox"]
-            )
-
-            confidence = (
-                person["confidence"]
-            )
-
-            cv2.rectangle(
-                frame,
-                (x1, y1),
-                (x2, y2),
-                (255, 0, 0),
-                2
-            )
-
-            label = (
-                f"Person "
-                f"{confidence:.2f}"
-            )
-
-            cv2.putText(
-                frame,
-                label,
-                (
-                    x1,
-                    max(y1 - 10, 20)
-                ),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (255, 0, 0),
-                2
-            )
-
-        # ==================================================
-        # PERSON COUNT DISPLAY
-        # ==================================================
-
-        person_count = (
-            detection_result.get(
-                "person_count",
-                0
-            )
-        )
-
-        yolo_fps = (
-            self.detection_worker.get_fps()
-        )
-
-        cv2.putText(
-            frame,
-            f"Persons: {person_count}",
-            (20, 75),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (255, 0, 0),
-            2
-        )
-
-        cv2.putText(
-            frame,
-            f"YOLO FPS: {yolo_fps:.1f}",
-            (20, 105),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (255, 0, 0),
-            2
-        )
-
-        # ==================================================
-        # DRAW YOLO OBJECT DETECTIONS
-        # ==================================================
-
-        for obj in self.detected_objects:
-
-            x1, y1, x2, y2 = obj["bbox"]
-            class_name = obj["class_name"]
-            confidence = obj["confidence"]
-
-            cv2.rectangle(
-                frame,
-                (x1, y1),
-                (x2, y2),
-                (0, 255, 255),
-                2
-            )
-
-            label = (
-                f"{class_name} {confidence:.2f}"
-            )
-
-            cv2.putText(
-                frame,
-                label,
-                (x1, max(y1 - 10, 20)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 255, 255),
-                2
-            )
-
-        cv2.putText(
-            frame,
-            f"Objects: {self.object_count}",
-            (20, 135),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 255),
-            2
-        )
-
-        cv2.putText(
-            frame,
-            f"Object YOLO FPS: {self.object_detection_fps:.1f}",
-            (20, 165),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 255),
-            2
-        )
 
         # ==================================================
         # ATTENTION TRACKER
@@ -1005,6 +861,90 @@ class ExamMonitor:
         self.logger.log_event(
             event
         )
+        
+    
+    def _check_object_events(self, detection_result):
+        """Create one event after an object is consistently detected."""
+
+        sequence = detection_result.get("result_sequence", 0)
+
+    # Ignore the same inference result being read repeatedly.
+        if sequence == self._last_object_result_sequence:
+            return
+
+        self._last_object_result_sequence = sequence
+
+        now = time.monotonic()
+        objects = detection_result.get("objects", [])
+
+    # Keep the highest-confidence detection for each class.
+        current_objects = {}
+
+        for obj in objects:
+            class_name = obj.get("class_name")
+            confidence = float(obj.get("confidence", 0.0))
+
+            if not class_name or confidence < self.OBJECT_MIN_CONFIDENCE:
+                continue
+
+            previous = current_objects.get(class_name)
+
+            if previous is None or confidence > previous["confidence"]:
+                current_objects[class_name] = obj
+
+    # Start or update the confirmation timer for each class.
+        for class_name, obj in current_objects.items():
+            confidence = float(obj["confidence"])
+            state = self._object_tracking.get(class_name)
+
+            if (
+                state is None
+                or now - state["last_seen"] > self.OBJECT_ABSENCE_RESET_SECONDS
+            ):
+                state = {
+                    "start": now,
+                    "last_seen": now,
+                    "hits": 1,
+                    "active": False,
+                    "confidence": confidence,
+                }
+                self._object_tracking[class_name] = state
+                continue
+
+            state["last_seen"] = now
+            state["hits"] += 1
+            state["confidence"] = max(state["confidence"], confidence)
+
+            duration = now - state["start"]
+
+            if (
+                not state["active"]
+                and state["hits"] >= self.OBJECT_MIN_HITS
+                and duration >= self.OBJECT_CONFIRM_SECONDS
+            ):
+                state["active"] = True
+
+                self._register_event({
+                    "type": "OBJECT_DETECTED",
+                    "direction": class_name,
+                    "duration": round(duration, 2),
+                })
+
+                print(
+                    f"Confirmed object event: {class_name} "
+                    f"(confidence={state['confidence']:.2f}, "
+                    f"duration={duration:.2f}s)"
+                )
+
+    # Reset a detection episode after the object has disappeared.
+        for class_name, state in list(self._object_tracking.items()):
+            if (
+                class_name not in current_objects
+                and now - state["last_seen"]
+                > self.OBJECT_ABSENCE_RESET_SECONDS
+            ):
+                del self._object_tracking[class_name]
+    
 
     def _capture_evidence(self, event):
         """Save one evidence image for a confirmed monitoring event."""
