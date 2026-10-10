@@ -19,6 +19,43 @@
 
 <div id="app">
 
+    
+    <!-- AUTHOR LOGIN -->
+    <div id="authorLogin" class="author-login" style="display: none;">
+        <div class="login-card">
+            <div class="brand-mark">AI</div>
+            <h1>MonitorAI</h1>
+            <p>Sign in to your author dashboard</p>
+
+            <form id="authorLoginForm">
+                <label for="authorUsername">Username</label>
+                <input
+                    id="authorUsername"
+                    name="username"
+                    type="text"
+                    autocomplete="username"
+                    required
+                />
+
+                <label for="authorPassword">Password</label>
+                <input
+                    id="authorPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                />
+
+                <p id="authorLoginError" role="alert" style="display: none;"></p>
+
+                <button id="authorLoginButton" type="submit">
+                    Sign in
+                </button>
+            </form>
+        </div>
+    </div>
+
+
     <!-- =====================================================
          AUTHOR APPLICATION
          ===================================================== -->
@@ -65,7 +102,26 @@
                     <span>Candidate Requests</span>
                 </button>
 
+                
+                <button
+                    class="nav-item"
+                    data-page="authors"
+                    id="authorsNavItem"
+                    style="display: none;"
+                >
+                    <span class="nav-icon">♙</span>
+                    <span>Authors</span>
+                </button>
+
+
             </nav>
+
+            
+            <button id="authorLogoutButton" class="logout-button" type="button">
+                <span>↪</span>
+                <span>Logout</span>
+            </button>
+
 
             <div class="sidebar-bottom">
                 <span class="status-dot"></span>
@@ -121,22 +177,24 @@
                 class="page active-page"
             >
 
+                
                 <div class="page-intro">
                     <div>
                         <span class="eyebrow">
                             AI Assessment Monitoring
                         </span>
 
-                        <h1>
+                        <h1 id="dashboardWelcomeHeading">
                             Monitor assessments with confidence.
                         </h1>
 
-                        <p>
+                        <p id="dashboardWelcomeDescription">
                             Create assessments, authorize candidates,
                             track progress, and review monitoring evidence.
                         </p>
                     </div>
                 </div>
+
 
 
                 <!-- STATS -->
@@ -307,6 +365,128 @@
                 ></div>
 
             </section>
+
+            
+            <!-- =================================================
+                 AUTHOR MANAGEMENT (ADMIN ONLY)
+                 ================================================= -->
+
+            <section
+                id="authorsPage"
+                class="page"
+            >
+                <div class="section-header">
+                    <div>
+                        <h2>Author Management</h2>
+                        <p>
+                            Create and manage accounts for assessment authors.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- CREATE AUTHOR -->
+
+                <div class="author-management-grid">
+
+                    <div class="author-form-card">
+                        <div class="author-card-heading">
+                            <div>
+                                <h3>Create Author</h3>
+                                <p>
+                                    Add a new author to MonitorAI.
+                                </p>
+                            </div>
+                            <span class="author-card-icon">+</span>
+                        </div>
+
+                        <form id="createAuthorForm">
+                            <div class="form-group">
+                                <label for="newAuthorUsername">
+                                    Username
+                                </label>
+                                <input
+                                    id="newAuthorUsername"
+                                    name="username"
+                                    type="text"
+                                    minlength="3"
+                                    maxlength="80"
+                                    autocomplete="off"
+                                    placeholder="Enter a username"
+                                    required
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="newAuthorPassword">
+                                    Temporary Password
+                                </label>
+                                <input
+                                    id="newAuthorPassword"
+                                    name="password"
+                                    type="password"
+                                    minlength="12"
+                                    autocomplete="new-password"
+                                    placeholder="At least 12 characters"
+                                    required
+                                >
+                                <small>
+                                    Use a strong, unique password.
+                                </small>
+                            </div>
+
+                            <div
+                                id="createAuthorMessage"
+                                class="author-form-message"
+                                role="status"
+                                aria-live="polite"
+                                style="display: none;"
+                            ></div>
+
+                            <button
+                                id="createAuthorSubmit"
+                                class="primary-button"
+                                type="submit"
+                            >
+                                + Create Author Account
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- AUTHOR LIST -->
+
+                    <div class="author-list-card">
+                        <div class="author-card-heading">
+                            <div>
+                                <h3>Registered Authors</h3>
+                                <p>
+                                    Accounts registered in MonitorAI.
+                                </p>
+                            </div>
+
+                            <button
+                                id="refreshAuthorsBtn"
+                                class="secondary-button"
+                                type="button"
+                                title="Refresh author list"
+                            >
+                                ↻ Refresh
+                            </button>
+                        </div>
+
+                        <div
+                            id="authorsList"
+                            class="authors-list"
+                            aria-live="polite"
+                        >
+                            <p class="empty-state">
+                                Author accounts will appear here.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
 
         </main>
 

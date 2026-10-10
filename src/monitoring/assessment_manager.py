@@ -1,6 +1,8 @@
 import sqlite3
 import uuid
 from datetime import datetime
+import hashlib
+import secrets
 
 
 class AssessmentManager:
@@ -225,6 +227,28 @@ class AssessmentManager:
                 ADD COLUMN access_token TEXT
                 """
             )
+            
+        
+        # ------------------------------------------------------
+        # MIGRATE ASSESSMENT CANDIDATES TABLE
+        # ------------------------------------------------------
+        cursor.execute(
+            "PRAGMA table_info(assessment_candidates)"
+        )
+
+        candidate_columns = {
+            row["name"]
+            for row in cursor.fetchall()
+        }
+
+        if "candidate_token_hash" not in candidate_columns:
+            cursor.execute(
+                """
+                ALTER TABLE assessment_candidates
+                ADD COLUMN candidate_token_hash TEXT
+                """
+            )
+
 
         # Give existing assessments a public token.
         cursor.execute(
@@ -248,14 +272,52 @@ class AssessmentManager:
 
         connection.commit()
 
+        
+        # ------------------------------------------------------
+        # MIGRATE ASSESSMENT OWNERSHIP
+        # ------------------------------------------------------
+
+        if "created_by_author_id" not in assessment_columns:
+            cursor.execute(
+                """
+                ALTER TABLE assessments
+                ADD COLUMN created_by_author_id TEXT
+                """
+            )
+
+        # Assign existing assessments to the admin account.
+        admin_row = cursor.execute(
+            """
+            SELECT author_id
+            FROM authors
+            WHERE role = 'ADMIN'
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        if admin_row is None:
+            raise RuntimeError(
+                "Cannot migrate assessment ownership: "
+                "no ADMIN account exists."
+            )
+
+        cursor.execute(
+            """
+            UPDATE assessments
+            SET created_by_author_id = ?
+            WHERE created_by_author_id IS NULL
+            """,
+            (admin_row["author_id"],)
+        )
+
         # ------------------------------------------------------
         # MIGRATE EXISTING SINGLE-CANDIDATE ASSESSMENTS
         # ------------------------------------------------------
 
-        self._migrate_existing_candidates(
-            connection
-        )
+        self._migrate_existing_candidates(connection)
 
+        connection.commit()
         connection.close()
 
     # ==========================================================
@@ -437,7 +499,8 @@ class AssessmentManager:
         candidate_id="",
         scheduled_at=None,
         duration_minutes=60,
-        candidate_limit=50
+        candidate_limit=50,
+        created_by_author_id=None,
     ):
 
         assessment_id = (
@@ -457,7 +520,6 @@ class AssessmentManager:
         cursor.execute(
             """
             INSERT INTO assessments (
-
                 assessment_id,
                 assessment_name,
                 organization,
@@ -469,10 +531,10 @@ class AssessmentManager:
                 scheduled_at,
                 duration_minutes,
                 status,
-                created_at
-
+                created_at,
+                created_by_author_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 assessment_id,
@@ -486,8 +548,9 @@ class AssessmentManager:
                 scheduled_at,
                 duration_minutes,
                 "READY",
-                created_at
-            )
+                created_at,
+                created_by_author_id,
+            ),
         )
 
         connection.commit()
@@ -512,49 +575,47 @@ class AssessmentManager:
     # GET ALL ASSESSMENTS
     # ==========================================================
 
-    def get_assessments(self):
-
+    
+    def get_assessments(self, created_by_author_id=None):
         connection = self._connect()
-
         cursor = connection.cursor()
 
-        cursor.execute(
-            """
-            SELECT *
-            FROM assessments
-            ORDER BY created_at DESC
-            """
-        )
+        if created_by_author_id is None:
+            cursor.execute(
+                """
+                SELECT *
+                FROM assessments
+                ORDER BY created_at DESC
+                """
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT *
+                FROM assessments
+                WHERE created_by_author_id = ?
+                ORDER BY created_at DESC
+                """,
+                (created_by_author_id,),
+            )
 
         assessments = []
 
         for row in cursor.fetchall():
-
             assessment = dict(row)
 
-            assessment[
-                "candidates"
-            ] = self.get_candidates(
-                assessment[
-                    "assessment_id"
-                ]
+            assessment["candidates"] = self.get_candidates(
+                assessment["assessment_id"]
+            )
+            assessment["candidate_count"] = len(
+                assessment["candidates"]
             )
 
-            assessment[
-                "candidate_count"
-            ] = len(
-                assessment[
-                    "candidates"
-                ]
-            )
-
-            assessments.append(
-                assessment
-            )
+            assessments.append(assessment)
 
         connection.close()
-
         return assessments
+
 
     # ==========================================================
     # GET SINGLE ASSESSMENT
@@ -680,6 +741,11 @@ class AssessmentManager:
 
         candidate_record_id = self._generate_candidate_record_id()
         created_at = self._now()
+        
+        candidate_token = secrets.token_urlsafe(32)
+        candidate_token_hash = hashlib.sha256(
+            candidate_token.encode("utf-8")
+        ).hexdigest()
 
         cursor.execute(
             """
@@ -705,25 +771,32 @@ class AssessmentManager:
                 assessment_id,
                 candidate_record_id,
                 status,
-                access_code
+                access_code,
+                candidate_token_hash
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 assessment_id,
                 candidate_record_id,
                 "PENDING",
-                None
+                None,
+                candidate_token_hash,
             )
         )
 
         connection.commit()
         connection.close()
-
-        return self.get_candidate(
+        
+        candidate = self.get_candidate(
             assessment_id,
             candidate_record_id
         )
+        
+        candidate.pop("candidate_token_hash", None)
+        candidate["candidate_token"] = candidate_token
+
+        return candidate
 
     # ==========================================================
     # APPROVE CANDIDATE
@@ -1135,6 +1208,39 @@ class AssessmentManager:
             return None
 
         return dict(row)
+    
+    
+    def get_candidate_by_token_hash(self, token_hash):
+        connection = self._connect()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                a.assessment_id,
+                a.assessment_name,
+                a.status AS assessment_status,
+                c.candidate_record_id,
+                c.candidate_name,
+                ac.status AS assignment_status,
+                ac.started_at,
+                ac.completed_at
+            FROM assessment_candidates ac
+            INNER JOIN assessments a
+                ON a.assessment_id = ac.assessment_id
+            INNER JOIN candidates c
+                ON c.candidate_record_id = ac.candidate_record_id
+            WHERE ac.candidate_token_hash = ?
+            LIMIT 1
+            """,
+            (token_hash,)
+        )
+
+        row = cursor.fetchone()
+        connection.close()
+
+        return dict(row) if row is not None else None
+
 
     # ==========================================================
     # ASSESSMENT CANDIDATE COUNTS

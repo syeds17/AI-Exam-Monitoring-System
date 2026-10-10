@@ -305,96 +305,72 @@ function closeModal(id) {
    AUTHOR NAVIGATION
    ========================================================= */
 
-function showAuthorPage(pageName) {
 
+function showAuthorPage(pageName) {
     const pages = [
         "dashboardPage",
         "assessmentsPage",
-        "requestsPage"
+        "requestsPage",
+        "authorsPage"
     ];
 
     pages.forEach(id => {
         const page = $(id);
 
-        if (!page) {
-            return;
+        if (page) {
+            page.classList.toggle(
+                "active-page",
+                id === `${pageName}Page`
+            );
         }
+    });
 
-        page.classList.toggle(
-            "active-page",
-            id === `${pageName}Page`
+    document.querySelectorAll(".nav-item").forEach(item => {
+        item.classList.toggle(
+            "active",
+            item.dataset.page === pageName
         );
     });
 
-
-    document
-        .querySelectorAll(".nav-item")
-        .forEach(item => {
-
-            item.classList.toggle(
-                "active",
-                item.dataset.page === pageName
-            );
-
-        });
-
-
     currentAuthorPage = pageName;
-
 
     const titleMap = {
         dashboard: [
             "Dashboard",
             "Manage assessments and candidates"
         ],
-
         assessments: [
             "Assessments",
             "Create and manage your assessment sessions"
         ],
-
         requests: [
             "Candidate Requests",
             "Review candidates requesting assessment access"
+        ],
+        authors: [
+            "Author Management",
+            "Create and manage author accounts"
         ]
     };
 
-
-    const info =
-        titleMap[pageName] ||
-        titleMap.dashboard;
-
+    const info = titleMap[pageName] || titleMap.dashboard;
 
     if ($("pageTitle")) {
-        $("pageTitle").textContent =
-            info[0];
+        $("pageTitle").textContent = info[0];
     }
-
 
     if ($("pageSubtitle")) {
-        $("pageSubtitle").textContent =
-            info[1];
+        $("pageSubtitle").textContent = info[1];
     }
 
-
-    if (
-        pageName === "dashboard"
-    ) {
+    if (pageName === "dashboard") {
         loadDashboard();
-    }
-
-
-    if (
-        pageName === "assessments"
-    ) {
+    } else if (pageName === "assessments") {
         loadAssessments();
-    }
-
-
-    if (
-        pageName === "requests"
-    ) {
+    } else if (pageName === "requests") {
         loadCandidateRequests();
+    } else if (pageName === "authors") {
+        loadAuthors();
     }
 }
 
@@ -4056,39 +4032,315 @@ function showCandidateApplication() {
 }
 
 
+function showAuthorLogin() {
+    const authorApp = $("authorApp");
+    const candidateApp = $("candidateApp");
+    const login = $("authorLogin");
+
+    if (authorApp) authorApp.style.display = "none";
+    if (candidateApp) candidateApp.style.display = "none";
+    if (login) login.style.display = "flex";
+
+    document.body.classList.remove("candidate-mode");
+}
+
+function initializeAuthorLogin() {
+    const form = $("authorLoginForm");
+
+    if (!form || form.dataset.initialized === "true") {
+        return;
+    }
+
+    form.dataset.initialized = "true";
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const username = $("authorUsername")?.value.trim() || "";
+        const password = $("authorPassword")?.value || "";
+        const errorElement = $("authorLoginError");
+        const button = $("authorLoginButton");
+
+        if (errorElement) {
+            errorElement.style.display = "none";
+            errorElement.textContent = "";
+        }
+
+        if (button) button.disabled = true;
+
+        try {
+            await apiRequest("/api/auth/login", {
+                method: "POST",
+                body: JSON.stringify({ username, password })
+            });
+
+            const session = await apiRequest("/api/auth/me");
+
+            if (!session?.authenticated) {
+                throw new Error("Login could not be verified.");
+            }
+
+            if ($("authorPassword")) {
+                $("authorPassword").value = "";
+            }
+
+            showAuthorApplication();
+        } catch (error) {
+            if (errorElement) {
+                errorElement.textContent =
+                    error.message || "Unable to sign in.";
+                errorElement.style.display = "block";
+            }
+        } finally {
+            if (button) button.disabled = false;
+        }
+    });
+}
+
+
 /* =========================================================
    ENTER AUTHOR APPLICATION
    ========================================================= */
 
+
 function showAuthorApplication() {
+    const authorApp = $("authorApp");
+    const candidateApp = $("candidateApp");
+    const login = $("authorLogin");
 
-    const authorApp =
-        $("authorApp");
+    // Hide the login screen
+    if (login) {
+        login.style.display = "none";
+    }
 
-    const candidateApp =
-        $("candidateApp");
-
-
+    // Hide the candidate portal
     if (candidateApp) {
-        candidateApp.style.display =
-            "none";
+        candidateApp.style.display = "none";
     }
 
-
+    // Show the author dashboard
     if (authorApp) {
-        authorApp.style.display =
-            "flex";
+        authorApp.style.display = "flex";
     }
 
+    document.body.classList.remove("candidate-mode");
 
-    document.body.classList.remove(
-        "candidate-mode"
-    );
+    updateAuthorNavigation();
+
+    // Open the dashboard page
+    showAuthorPage("dashboard");
+}
 
 
-    showAuthorPage(
-        "dashboard"
-    );
+function initializeAuthorLogout() {
+    const button = $("authorLogoutButton");
+
+    if (!button || button.dataset.initialized === "true") {
+        return;
+    }
+
+    button.dataset.initialized = "true";
+
+    button.addEventListener("click", async () => {
+        button.disabled = true;
+
+        try {
+            await apiRequest("/api/auth/logout", {
+                method: "POST"
+            });
+
+            if ($("authorPassword")) {
+                $("authorPassword").value = "";
+            }
+
+            showAuthorLogin();
+        } catch (error) {
+            alert(error.message || "Unable to log out. Please try again.");
+        } finally {
+            button.disabled = false;
+        }
+    });
+}
+
+
+/* =========================================================
+   AUTHOR MANAGEMENT
+   ========================================================= */
+
+function initializeAuthorsPage() {
+    const form = $("createAuthorForm");
+    const refreshButton = $("refreshAuthorsBtn");
+
+    if (form && form.dataset.initialized !== "true") {
+        form.dataset.initialized = "true";
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const username = $("newAuthorUsername")?.value.trim() || "";
+            const password = $("newAuthorPassword")?.value || "";
+            const button = $("createAuthorSubmit");
+
+            if (!username || !password) {
+                showAuthorFormMessage(
+                    "Please enter a username and password.",
+                    false
+                );
+                return;
+            }
+
+            if (button) button.disabled = true;
+
+            showAuthorFormMessage("", true);
+
+            try {
+                const result = await apiRequest("/api/auth/authors", {
+                    method: "POST",
+                    body: JSON.stringify({ username, password })
+                });
+
+                showAuthorFormMessage(
+                    result.message || "Author created successfully.",
+                    true
+                );
+
+                form.reset();
+                await loadAuthors();
+            } catch (error) {
+                showAuthorFormMessage(
+                    error.message || "Unable to create author.",
+                    false
+                );
+            } finally {
+                if (button) button.disabled = false;
+            }
+        });
+    }
+
+    if (refreshButton && refreshButton.dataset.initialized !== "true") {
+        refreshButton.dataset.initialized = "true";
+
+        refreshButton.addEventListener("click", () => {
+            loadAuthors();
+        });
+    }
+}
+
+
+
+async function updateAuthorNavigation() {
+    const authorsNav = $("authorsNavItem");
+    const heading = $("dashboardWelcomeHeading");
+    const description = $("dashboardWelcomeDescription");
+
+    try {
+        const session = await apiRequest("/api/auth/me");
+
+        const isAuthenticated = session?.authenticated;
+        const isAdmin = isAuthenticated && session?.role === "ADMIN";
+
+        // Show the Authors navigation only to admins.
+        if (authorsNav) {
+            authorsNav.style.display = isAdmin ? "" : "none";
+        }
+
+        // Keep the existing admin dashboard exactly as it is.
+        if (isAdmin) {
+            if (heading) {
+                heading.textContent = "Monitor assessments with confidence.";
+            }
+
+            if (description) {
+                description.textContent =
+                    "Create assessments, authorize candidates, track progress, and review monitoring evidence.";
+            }
+        } else if (isAuthenticated) {
+            // Personalize the regular author's dashboard.
+            if (heading) {
+                heading.textContent = `Welcome, ${session.username}!`;
+            }
+
+            if (description) {
+                description.textContent =
+                    "Manage your assessments, candidates, and monitoring reviews.";
+            }
+        }
+
+        if (!isAdmin && currentAuthorPage === "authors") {
+            showAuthorPage("dashboard");
+        }
+    } catch (error) {
+        if (authorsNav) {
+            authorsNav.style.display = "none";
+        }
+
+        console.error("Unable to update author navigation:", error);
+    }
+}
+
+
+
+function showAuthorFormMessage(message, success) {
+    const element = $("createAuthorMessage");
+    if (!element) return;
+
+    element.textContent = message;
+    element.className = "author-form-message " +
+        (success ? "success" : "error");
+    element.style.display = message ? "block" : "none";
+}
+
+async function loadAuthors() {
+    const container = $("authorsList");
+    if (!container) return;
+
+    container.textContent = "Loading author accounts...";
+
+    try {
+        const result = await apiRequest("/api/auth/authors");
+        renderAuthors(result.authors || []);
+    } catch (error) {
+        container.textContent =
+            error.message || "Unable to load author accounts.";
+    }
+}
+
+function renderAuthors(authors) {
+    const container = $("authorsList");
+    if (!container) return;
+
+    container.replaceChildren();
+
+    if (!authors.length) {
+        const empty = document.createElement("p");
+        empty.className = "empty-state";
+        empty.textContent = "No author accounts found.";
+        container.appendChild(empty);
+        return;
+    }
+
+    authors.forEach((author) => {
+        const item = document.createElement("div");
+        item.className = "author-list-item";
+
+        const details = document.createElement("div");
+
+        const username = document.createElement("strong");
+        username.textContent = author.username || "Unknown user";
+
+        const metadata = document.createElement("small");
+        metadata.textContent =
+            author.is_active ? "Active account" : "Inactive account";
+
+        details.append(username, metadata);
+
+        const badge = document.createElement("span");
+        badge.className = "author-role-badge";
+        badge.textContent = author.role || "AUTHOR";
+
+        item.append(details, badge);
+        container.appendChild(item);
+    });
 }
 
 
@@ -4382,84 +4634,62 @@ function stopCandidatePolling() {
    CHECK CANDIDATE AUTHORIZATION
    ========================================================= */
 
-async function checkCandidateAuthorization() {
 
-    if (
-        !candidateAssessment ||
-        !candidateRecord
-    ) {
+async function checkCandidateAuthorization() {
+    if (!candidateAssessment || !candidateRecord) {
         return;
     }
-
 
     const candidateRecordId =
         candidateRecord.candidate_record_id ||
         candidateRecord.id;
 
-
     if (!candidateRecordId) {
         return;
     }
 
-
     try {
+        // The browser automatically sends the HttpOnly
+        // candidate cookie with this same-origin request.
+        const result = await apiRequest(
+            "/api/candidate/status"
+        );
 
-        const result =
-            await apiRequest(
-                `/api/assessments/${encodeURIComponent(
-                    candidateAssessment.assessment_id
-                )}/candidates/${encodeURIComponent(
-                    candidateRecordId
-                )}`
-            );
+        const candidate = result.candidate;
 
-        const candidate =
-            result.candidate ||
-            result;
-
-
-        candidateRecord =
-            {
-                ...candidateRecord,
-                ...candidate
-            };
-
-
-        const status =
-            getCandidateStatus(
-                candidateRecord
-            );
-
-
+        // Ensure the authenticated candidate matches
+        // the assessment currently open in the browser.
         if (
-            [
-                "AUTHORIZED",
-                "APPROVED"
-            ].includes(status)
+            candidate.assessment_id !==
+                candidateAssessment.assessment_id ||
+            candidate.candidate_record_id !==
+                candidateRecordId
         ) {
-
             stopCandidatePolling();
 
+            console.error("Candidate session mismatch.");
+            showCandidateStep("candidateRequestStep");
+            return;
+        }
+
+        candidateRecord = {
+            ...candidateRecord,
+            ...candidate
+        };
+
+        const status = getCandidateStatus(candidateRecord);
+
+        if (["AUTHORIZED", "APPROVED"].includes(status)) {
+            stopCandidatePolling();
             showCandidateAuthorized();
-
             return;
         }
 
-
-        if (
-            [
-                "REJECTED",
-                "DENIED"
-            ].includes(status)
-        ) {
-
+        if (["REJECTED", "DENIED"].includes(status)) {
             stopCandidatePolling();
-
             showCandidateRejected();
-
             return;
         }
-
 
         if (
             [
@@ -4469,27 +4699,16 @@ async function checkCandidateAuthorization() {
                 "IN_PROGRESS"
             ].includes(status)
         ) {
-
             stopCandidatePolling();
-
             showCandidateMonitoringState();
-
             return;
         }
 
-
-        if (
-            status === "COMPLETED"
-        ) {
-
+        if (status === "COMPLETED") {
             stopCandidatePolling();
-
             showCandidateCompleted();
-
         }
-
     } catch (error) {
-
         console.warn(
             "Authorization check failed:",
             error
@@ -4881,7 +5100,7 @@ async function startCandidateMonitoring() {
             )
         );
 
-        await apiRequest(
+        const monitoringSession = await apiRequest(
             `/api/assessments/${encodeURIComponent(
                 candidateAssessment.assessment_id
             )}/candidates/${encodeURIComponent(
@@ -4890,6 +5109,11 @@ async function startCandidateMonitoring() {
             {
                 method: "POST"
             }
+        );
+
+        console.log(
+            "Monitoring session started:",
+            monitoringSession.session_id
         );
 
         showCandidateMonitoringState();
@@ -5308,40 +5532,33 @@ function getAssessmentTokenFromUrl() {
    OPEN APPLICATION
    ========================================================= */
 
+
 async function initializeApplication() {
-
-    const token =
-        getAssessmentTokenFromUrl();
-
-
-    /*
-       If the URL contains an assessment token,
-       open the candidate portal.
-
-       Otherwise show the author application.
-    */
+    const token = getAssessmentTokenFromUrl();
 
     if (token) {
-
         showCandidateApplication();
 
         if ($("candidateAccessToken")) {
-
-            $("candidateAccessToken").value =
-                token;
+            $("candidateAccessToken").value = token;
         }
 
-
-        await loadCandidateAssessment(
-            token
-        );
-
-
+        await loadCandidateAssessment(token);
         return;
     }
 
+    try {
+        const session = await apiRequest("/api/auth/me");
 
-    showAuthorApplication();
+        if (session?.authenticated === true) {
+            showAuthorApplication();
+            return;
+        }
+    } catch (error) {
+        // No valid author session; show the login screen.
+    }
+
+    showAuthorLogin();
 }
 
 
@@ -5877,6 +6094,12 @@ document.addEventListener(
         initializeCandidateEvents();
 
         initializeModalEvents();
+
+        initializeAuthorLogin();
+
+        initializeAuthorLogout();
+
+        initializeAuthorsPage();
 
 
         await initializeApplication();

@@ -70,6 +70,7 @@ class MonitoringService:
         assessment_type: str,
         scheduled_at: str | None,
         duration_minutes: int,
+        created_by_author_id: str,
         candidate_limit: int = 50,
     ):
 
@@ -77,14 +78,18 @@ class MonitoringService:
             assessment_name=assessment_name,
             organization=organization,
             assessment_type=assessment_type,
+            created_by_author_id=created_by_author_id,
             scheduled_at=scheduled_at,
             duration_minutes=duration_minutes,
             candidate_limit=candidate_limit,
         )
 
-    def get_assessments(self):
+    
+    def get_assessments(self, created_by_author_id=None):
+        return self.assessment_manager.get_assessments(
+            created_by_author_id=created_by_author_id
+        )
 
-        return self.assessment_manager.get_assessments()
 
     def get_assessment(
         self,
@@ -166,6 +171,13 @@ class MonitoringService:
                 assessment_id
             )
         )
+        
+    
+    def get_candidate_by_token_hash(self, token_hash):
+        return self.assessment_manager.get_candidate_by_token_hash(
+            token_hash
+        )
+
 
     def get_candidate(
         self,
